@@ -14,9 +14,11 @@ In the meantime, we'll try to maintain this repo as a version of the plugin that
 
 ## Installation
 
-To use the fork, you'll have to build it from source--but that's easy and fast. See "Building the plugin," below.
+To use the fork, you'll have to build it from source--but that's easy and fast. See "Building the plugin," below. (Skip the GitHub releases and Jetbrains marketplace builds--those are from the main repo.)
 
-Load it into the IDE via Preferences->Plugins->Gear->Install Plugin from Disk
+Load it into the IDE via Preferences->Plugins->Gear->Install Plugin from Disk.
+
+As a fast path, [here's my build for Android Studio](https://github.com/hedronvision/bazelbuild-intellij/releases/download/v2021.02.03/aswb_bazel.zip) (From February 3, 2021. Fixes things for me with Android Studio 4.1.2).
 
 [If anyone wants to help with better distribution (binaries, CI, etc.) we'd love it!]
 
