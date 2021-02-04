@@ -2,9 +2,9 @@
 
 **Goal: Have a working version of the Bazel Android Studio plugin. Share it with anyone else who might want it!**
 
-We've forked only because we found we needed to apply bug fixes to get the plugin to work. Hopefully that's temporary; we'd be delighted to get these fixes into the main repo instead! Indeed, we tried to propose solutions there first, but haven't heard anything from the maintainers in a while--nor have most users, issues, or PRs, it seems. Maintainers, if you see this, we'd be delighted to delete this repo when the main one is back in working order.
+We've forked only because we found we needed to apply bug fixes to get the plugin to work. Hopefully that's temporary; we'd be delighted to get these fixes into the main repo instead! Indeed, we tried to propose solutions there first, but haven't heard anything from the maintainers in a while--nor have most users, issues, or PRs, it seems. Bazel intellij developers, if you're reading this, thank you for the great software you've shared with the world. We're appreciative and would be delighted to delete this repo when the main one is back in working order.
 
-In the meantime, we'll try to maintain this repo as a version of the plugin that works outside of Google. We'll have it automatically pull in the latest from the official repo. If you spot good fixes that unbreak key issues in the main repo but aren't being merged , we'd love it if you'd help keep the fork working by filing a PR or issue here. But new issues should go in the main repo!
+In the meantime, we'll try to maintain this repo as a version of the plugin that works outside of Google. We'll have it automatically pull in the latest from the official repo. If you spot good fixes that unbreak key issues in the main repo but aren't being merged, we'd love it if you'd help keep the fork working by filing a PR or issue here. But new issues should go in the main repo!
 
 ## Key Issues Worked Around:
 - Main repo uses a broken version of protobuf that prevents syncing: https://github.com/bazelbuild/intellij/issues/2265
