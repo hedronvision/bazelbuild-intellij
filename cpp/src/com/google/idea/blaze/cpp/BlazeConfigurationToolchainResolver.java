@@ -372,9 +372,7 @@ public final class BlazeConfigurationToolchainResolver {
       File executionRoot,
       File cppExecutable,
       String compilerVersion) {
-    File compilerWrapper =
-        CompilerWrapperProvider.getInstance()
-            .createCompilerExecutableWrapper(executionRoot, cppExecutable);
+    File compilerWrapper = cppExecutable;
     if (compilerWrapper == null) {
       return null;
     }
