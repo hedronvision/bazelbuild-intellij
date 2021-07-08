@@ -29,7 +29,6 @@ public class BlazeIcons {
 
   public static final Icon Logo = loadForBuildSystem("logo.png"); // 16x16
   public static final Icon BazelLogo = load("bazel/logo.png"); // 16x16
-  public static final Icon BlazeSlow = load("blaze_slow.png"); // 16x16
   public static final Icon Failed = loadForBuildSystem("failed.png"); // 16x16
 
   public static final Icon BlazeRerun = load("blazeRerun.png"); // 16x16

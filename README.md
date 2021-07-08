@@ -9,6 +9,7 @@ In the meantime, we'll try to maintain this repo as a version of the plugin that
 ## Key Issues Worked Around:
 - Main repo uses a broken version of protobuf that prevents syncing: https://github.com/bazelbuild/intellij/issues/2265
 - Compiler wrapper breaks C++/NDK autocomplete: https://github.com/bazelbuild/intellij/issues/2285
+- Fix Blaze icon sneaking through for non-incremental sync, so the menus are more consistently Bazel.
 
 # An IntelliJ plugin for [Bazel](http://bazel.build) projects
 
