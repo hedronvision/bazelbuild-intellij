@@ -1,7 +1,8 @@
-# Configure automatic pull from upstream using config from https://github.com/wei/pull/issues/76
+# Configure automatic pull and merge from upstream, notifying CS to resolve conflicts
 version: "1"
 rules:
   - base: master
     upstream: bazelbuild:master
-    autoMerge: true
-    autoMergeHardReset: false
+    mergeMethod: merge
+    conflictReviewers:
+      - cpsauer
