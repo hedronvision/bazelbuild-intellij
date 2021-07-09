@@ -6,10 +6,11 @@ We've forked only because we found we needed to apply bug fixes to get the plugi
 
 In the meantime, we'll try to maintain this repo as a version of the plugin that works outside of Google. We'll have it automatically pull in the latest from the official repo. If you spot good fixes that unbreak key issues in the main repo but aren't being merged, we'd love it if you'd help keep the fork working by filing a PR or issue here. But new issues should go in the main repo!
 
-## Key Issues Worked Around:
-- Main repo uses a broken version of protobuf that prevents syncing: https://github.com/bazelbuild/intellij/issues/2265
+## Key Issues Fixed:
+
 - Compiler wrapper breaks C++/NDK autocomplete: https://github.com/bazelbuild/intellij/issues/2285
-- Fix Blaze icon sneaking through for non-incremental sync, so the menus are more consistently Bazel: https://github.com/bazelbuild/intellij/issues/2762
+- External include paths break when you run a build: https://github.com/bazelbuild/intellij/issues/2766
+- Blaze icon sneaks through for non-incremental sync: https://github.com/bazelbuild/intellij/issues/2762
 
 # An IntelliJ plugin for [Bazel](http://bazel.build) projects
 
@@ -19,7 +20,7 @@ To use the fork, you'll have to build it from source--but that's easy and fast. 
 
 Load it into the IDE via Preferences->Plugins->Gear->Install Plugin from Disk.
 
-As a fast path, [here's my build for Android Studio](https://github.com/hedronvision/bazelbuild-intellij/releases/download/v2021.02.03/aswb_bazel.zip) (From February 3, 2021. Fixes things for me with Android Studio 4.1.2).
+As a fast path, [here's my build for Android Studio](https://github.com/hedronvision/bazelbuild-intellij/releases/download/v2021.07.08/aswb_bazel.zip) (From July 8, 2021. Fixes things for me as of Android Studio 4.2.2).
 
 [If anyone wants to help with better distribution (binaries, CI, etc.) we'd love it!]
 
