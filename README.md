@@ -20,7 +20,7 @@ To use the fork, you'll have to build it from source--but that's easy and fast. 
 
 Load it into the IDE via Preferences->Plugins->Gear->Install Plugin from Disk.
 
-As a fast path, [here's my build for Android Studio](https://github.com/hedronvision/bazelbuild-intellij/releases/download/v2021.07.08/aswb_bazel.zip) (From July 8, 2021. Fixes things for me as of Android Studio 4.2.2).
+As a fast path, [here's my build for Android Studio](https://github.com/hedronvision/bazelbuild-intellij/releases/download/v2021.07.17/aswb_bazel.zip) (From July 17, 2021. Fixes things for me as of Android Studio 4.2.2).
 
 [If anyone wants to help with better distribution (binaries, CI, etc.) we'd love it!]
 
