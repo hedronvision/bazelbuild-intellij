@@ -25,6 +25,7 @@ import com.google.idea.blaze.base.settings.Blaze;
 import com.google.idea.blaze.base.sync.data.BlazeProjectDataManager;
 import com.intellij.openapi.project.Project;
 import java.io.File;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -123,15 +124,18 @@ public class ExecutionRootPathResolver {
   /**
    * Converts external paths in unstable locations under execroot that may change on the next build
    * to stable ones under their external workspace.
-   * That is, converts paths under <outputBase>/execroot/__main__/external/ to paths under
+   * That is, converts paths under <outputBase>/execroot/<workspace_name>/external/ to paths under
    * <outputBase>/external/.
    * Safe to call on all paths; non-external paths are left as they are.
    * See https://github.com/bazelbuild/intellij/issues/2766 for more details.
    */
   private static File convertExternalToStable(File f) {
-    String unstableExecrootSubpath =
-      f.separator + "execroot" + f.separator + "__main__" + f.separator + "external" + f.separator;
+    String regexSep = Pattern.quote(f.separator);
+    // Workspace name defaults to __main__ per DEFAULT_REPOSITORY_DIRECTORY in https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/cmdline/LabelConstants.java
+    // Valid sorkspace name regex copied from LEGAL_WORKSPACE_NAME in https://github.com/bazelbuild/bazel/blob/9302ebd906a2f5e9678f994efb2fbc8abab544c0/src/main/java/com/google/devtools/build/lib/packages/WorkspaceGlobals.java
+    String regexUnstableExecrootSubpath = // ↓ matches workspace name.
+      regexSep + "execroot" + regexSep + "(__main__|\\p{Alpha}[-.\\w]*)" + regexSep + "external" + regexSep;
     String stableExternalSubpath = f.separator + "external" + f.separator;
-    return new File(f.getAbsolutePath().replace(unstableExecrootSubpath, stableExternalSubpath));
+    return new File(f.getAbsolutePath().replaceFirst(regexUnstableExecrootSubpath, stableExternalSubpath));
   }
 }
