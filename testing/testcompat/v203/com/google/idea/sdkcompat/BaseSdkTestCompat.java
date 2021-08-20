@@ -15,10 +15,15 @@
  */
 package com.google.idea.sdkcompat;
 
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFileSystem;
 import com.intellij.openapi.vfs.newvfs.impl.StubVirtualFile;
+import com.intellij.util.indexing.diagnostic.IndexingJobStatistics;
+import com.intellij.util.indexing.diagnostic.ProjectIndexingHistory;
 import java.io.File;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import org.jetbrains.annotations.Nullable;
 import org.junit.rules.TemporaryFolder;
 
@@ -42,5 +47,41 @@ public final class BaseSdkTestCompat {
         return true;
       }
     };
+  }
+
+  /**
+   * #api203: Doing duration calculations is not necessary anymore. Inline into IndexingLoggerTest.
+   */
+  @SuppressWarnings("UnstableApiUsage")
+  public static void setIndexingTimes(
+      ProjectIndexingHistory.IndexingTimes projectIndexingHistory,
+      Duration expectedIndexingDuration,
+      Duration expectedUpdatingDuration,
+      Duration expectedScanFilesDuration) {
+
+    Instant indexingStart = Instant.ofEpochMilli(1627913529);
+    projectIndexingHistory.setIndexingEnd(indexingStart.plus(expectedIndexingDuration));
+    projectIndexingHistory.setIndexingStart(indexingStart);
+
+    Instant totalStart = Instant.ofEpochMilli(1627913533);
+    projectIndexingHistory.setTotalEnd(totalStart.plus(expectedUpdatingDuration));
+    projectIndexingHistory.setTotalStart(totalStart);
+
+    Instant scanFilesEnd = Instant.ofEpochMilli(1327913533);
+    projectIndexingHistory.setScanFilesEnd(scanFilesEnd.plus(expectedScanFilesDuration));
+    projectIndexingHistory.setScanFilesStart(scanFilesEnd);
+  }
+
+  /** #api203: inline into IndexingLoggerTest */
+  @SuppressWarnings("UnstableApiUsage")
+  public static void setIndexingVisibleTime(
+      IndexingJobStatistics indexingStatistic, Duration expectedIndexingVisibleTime) {
+    indexingStatistic.setTotalIndexingTime(expectedIndexingVisibleTime.toNanos());
+  }
+
+  /** #api211 inline into IndexingLoggerTest */
+  @SuppressWarnings("UnstableApiUsage")
+  public static ProjectIndexingHistory initializeProjectIndexingHistory(Project project) {
+    return new ProjectIndexingHistory(project);
   }
 }

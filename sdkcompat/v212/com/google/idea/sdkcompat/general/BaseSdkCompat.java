@@ -4,6 +4,7 @@ import com.intellij.conversion.ConversionContext;
 import com.intellij.diagnostic.VMOptions;
 import com.intellij.ide.actions.searcheverywhere.SearchEverywhereManager;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ex.util.EditorFacade;
@@ -16,8 +17,10 @@ import com.intellij.ui.CoreIconManager;
 import com.intellij.ui.IconManager;
 import com.intellij.usageView.UsageTreeColors;
 import com.intellij.usages.TextChunk;
+import com.intellij.util.indexing.diagnostic.ProjectIndexingHistory.IndexingTimes;
 import com.jetbrains.python.psi.LanguageLevel;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -86,8 +89,32 @@ public final class BaseSdkCompat {
     return e.getData(ChangesListView.UNVERSIONED_FILE_PATHS_DATA_KEY);
   }
 
+  /**
+   * See {@link PathManager#getIndexRoot()}.
+   *
+   * <p>#api203: Method return type changed in 2021.1 from File to Path.
+   */
+  public static Path getIndexRoot() {
+    return PathManager.getIndexRoot();
+  }
+
   /** #api211 Activating IconManager requires an IconManager parameter in 2021.2 */
   public static void activateIconManager() throws Throwable {
     IconManager.activate(new CoreIconManager());
+  }
+
+  /** #api203: inline this method into IndexingLogger */
+  public static Duration getTotalUpdatingTime(IndexingTimes times) {
+    return Duration.ofNanos(times.getTotalUpdatingTime());
+  }
+
+  /** #api203: inline this method into IndexingLogger */
+  public static Duration getScanFilesDuration(IndexingTimes times) {
+    return times.getScanFilesDuration();
+  }
+
+  /** #api203: inline this method into IndexingLogger */
+  public static Duration getTotalIndexingTime(IndexingTimes times) {
+    return times.getIndexingDuration();
   }
 }
