@@ -15,6 +15,8 @@
  */
 package com.google.idea.blaze.android.projectsystem;
 
+import static java.util.stream.Collectors.joining;
+
 import com.android.tools.idea.projectsystem.ClassFileFinderUtil;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +41,6 @@ import com.intellij.openapi.vfs.JarFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import java.io.File;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,6 +62,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class RenderJarClassFileFinder implements BlazeClassFileFinder {
   @VisibleForTesting public static final String CLASS_FINDER_KEY = "RenderJarClassFileFinder";
+
+  /** Experiment to control whether class file finding from render jars should be enabled. */
+  private static final BoolExperiment enabled =
+      new BoolExperiment("aswb.renderjar.cff.enabled", true);
 
   /**
    * Experiment to toggle whether resource resolution is allowed from Render JARs. Render JARs
@@ -112,6 +117,10 @@ public class RenderJarClassFileFinder implements BlazeClassFileFinder {
   @Nullable
   @Override
   public VirtualFile findClassFile(String fqcn) {
+    if (!isEnabled()) {
+      return null;
+    }
+
     // Render JAR should not resolve any resources. All resources should be available to the IDE
     // through ResourceRepository. Attempting to resolve resources from Render JAR indicates that
     // ASwB hasn't properly set up resources for the project.
@@ -123,14 +132,13 @@ public class RenderJarClassFileFinder implements BlazeClassFileFinder {
     BlazeProjectData projectData =
         BlazeProjectDataManager.getInstance(project).getBlazeProjectData();
     if (projectData == null) {
-      log.error("Could not find BlazeProjectData for project " + project.getName());
+      log.warn("Could not find BlazeProjectData for project " + project.getName());
       return null;
     }
 
     ImmutableSet<TargetKey> binaryTargets = getBinaryTargets();
-
     if (binaryTargets.isEmpty()) {
-      log.error(
+      log.warn(
           String.format(
               "No binaries for module %s. Adding a binary target to the projectview and resyncing"
                   + " might fix the issue.",
@@ -152,15 +160,7 @@ public class RenderJarClassFileFinder implements BlazeClassFileFinder {
       }
     }
 
-    log.error(
-        String.format(
-            "Could not find %s\nModule: %s\nBinary Targets:\n  %s",
-            fqcn,
-            module.getName(),
-            binaryTargets.stream()
-                .map(t -> t.getLabel().toString())
-                .collect(Collectors.joining("\n  "))));
-
+    log.warn(String.format("Could not find class `%1$s` (module: `%2$s`)", fqcn, module.getName()));
     return null;
   }
 
@@ -194,6 +194,14 @@ public class RenderJarClassFileFinder implements BlazeClassFileFinder {
       binaryTargets = ImmutableSet.of();
       log.warn("Could not find AndroidResourceModule for " + module.getName());
     }
+    log.info(
+        String.format(
+            "Binary targets for module `%1$s`: %2$s",
+            module.getName(),
+            binaryTargets.stream()
+                .limit(5)
+                .map(t -> t.getLabel().toString())
+                .collect(joining(", "))));
     return binaryTargets;
   }
 
@@ -245,6 +253,6 @@ public class RenderJarClassFileFinder implements BlazeClassFileFinder {
   }
 
   public static boolean isEnabled() {
-    return BlazeClassFileFinderFactory.getClassFileFinderName().equals(CLASS_FINDER_KEY);
+    return enabled.getValue();
   }
 }
