@@ -117,6 +117,14 @@ http_archive(
     url = "https://plugins.jetbrains.com/files/7322/134206/python-ce-212.5080.64.zip",
 )
 
+# Python plugin for IntelliJ CE. Required at compile-time for python-specific features.
+http_archive(
+    name = "python_2021_3",
+    build_file_content = _PYTHON_CE_BUILD_FILE,
+    sha256 = "b9b6962be2e534310897dcbef97206b7a23dd6b26c43cfd5a4bf1f9404bb2021",
+    url = "https://plugins.jetbrains.com/files/7322/139311/python-ce-213.4293.20.zip",
+)
+
 _GO_BUILD_FILE = """
 java_import(
     name = "go",
@@ -147,6 +155,14 @@ http_archive(
     build_file_content = _GO_BUILD_FILE,
     sha256 = "99cb14fe215f92e7a2f257cf01490edf534ef39a85f99b60a7a41e367e567ab3",
     url = "https://plugins.jetbrains.com/files/9568/133958/go-212.5080.55.zip",
+)
+
+# Go plugin for IntelliJ UE. Required at compile-time for Bazel integration.
+http_archive(
+    name = "go_2021_3",
+    build_file_content = _GO_BUILD_FILE,
+    sha256 = "12b7795de21b5c6987172e743b563c02cd57b25e9d25252d958025e78be427d8",
+    url = "https://plugins.jetbrains.com/files/9568/139297/go-213.4293.20.zip",
 )
 
 _SCALA_BUILD_FILE = """
