@@ -137,8 +137,8 @@ http_archive(
 http_archive(
     name = "python_2021_3",
     build_file_content = _PYTHON_CE_BUILD_FILE,
-    sha256 = "b9b6962be2e534310897dcbef97206b7a23dd6b26c43cfd5a4bf1f9404bb2021",
-    url = "https://plugins.jetbrains.com/files/7322/139311/python-ce-213.4293.20.zip",
+    sha256 = "29abe29936c8721300cfe1233f59b6176aed50b79ad73609f6ade517beae99b8",
+    url = "https://plugins.jetbrains.com/files/7322/139971/python-ce-213.4631.21.zip",
 )
 
 _GO_BUILD_FILE = """
@@ -177,8 +177,8 @@ http_archive(
 http_archive(
     name = "go_2021_3",
     build_file_content = _GO_BUILD_FILE,
-    sha256 = "12b7795de21b5c6987172e743b563c02cd57b25e9d25252d958025e78be427d8",
-    url = "https://plugins.jetbrains.com/files/9568/139297/go-213.4293.20.zip",
+    sha256 = "827b73a8e3e7acb9211969bae62190e884f33bdf6d02c7299e0f18d1307d9fcd",
+    url = "https://plugins.jetbrains.com/files/9568/140077/go-213.4631.20.zip",
 )
 
 _SCALA_BUILD_FILE = """
@@ -217,8 +217,8 @@ http_archive(
 http_archive(
     name = "scala_2021_3",
     build_file_content = _SCALA_BUILD_FILE,
-    sha256 = "619a947d1f7c1d90a4736dc63980c109f86fb6ee5432029198fa5cb827017263",
-    url = "https://plugins.jetbrains.com/files/1347/138059/scala-intellij-bin-2021.3.4.zip",
+    sha256 = "9a5278a03617c1768d85226a3e4f89659443fa01942eab84f0f618e11c25e2c2",
+    url = "https://plugins.jetbrains.com/files/1347/139787/scala-intellij-bin-2021.3.5.zip",
 )
 
 # The plugin api for Android Studio 2020.3. This is required to build ASwB,
