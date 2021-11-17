@@ -200,17 +200,8 @@ final class FastBuildCompilerFactoryImpl implements FastBuildCompilerFactory {
     for (int i = 0; i < jars.size(); ++i) {
       urls[i] = jars.get(i).toURI().toURL();
     }
-    URLClassLoader urlClassLoader = new URLClassLoader(urls, platformClassLoader());
+    URLClassLoader urlClassLoader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader());
     return urlClassLoader.loadClass(javaCompilerClass);
-  }
-
-  private static ClassLoader platformClassLoader() {
-    try {
-      return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
-    } catch (ReflectiveOperationException e) {
-      // Java 8
-      return null;
-    }
   }
 
   private static class JavacRunner implements FastBuildCompiler {
@@ -242,12 +233,6 @@ final class FastBuildCompilerFactoryImpl implements FastBuildCompilerFactory {
               .add("-cp")
               .add(instructions.classpath().stream().map(File::getPath).collect(joining(":")))
               .add("-g");
-      if ("8".equals(sourceVersion) && "11".equals(targetVersion)) {
-        // Disable StringConcatFactory (not available in JDK 8) to avoid issues when using
-        // "-source 8 -target 11" and a JDK 8 bootclasspath. Remove when only full JDK 11 is
-        // supported.
-        argsBuilder.add("-XDstringConcat=inline");
-      }
       if (!bootClassPathJars.isEmpty()) {
         argsBuilder
             .add("-bootclasspath")

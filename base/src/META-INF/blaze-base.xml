@@ -278,7 +278,7 @@
     <applicationService serviceInterface="com.google.idea.blaze.base.async.process.ExternalTaskProvider"
                         serviceImplementation="com.google.idea.blaze.base.async.process.ExternalTaskProvider$Impl"/>
 
-    <additionalTextAttributes scheme="Default" file="base/resources/colorSchemes/BuildDefault.xml"/>
+    <additionalTextAttributes scheme="Default" file="resources/colorSchemes/BuildDefault.xml"/>
     <typedHandler implementation="com.google.idea.blaze.base.lang.buildfile.completion.BuildCompletionAutoPopupHandler"/>
     <projectOpenProcessor implementation="com.google.idea.blaze.base.project.BlazeProjectOpenProcessor"/>
     <projectViewNodeDecorator implementation="com.google.idea.blaze.base.syncstatus.SyncStatusNodeDecorator"/>
@@ -552,8 +552,7 @@
     <!-- Order of loaders is important. If a value for the same experiment defined in a few sources, then the first has higher priority. -->
     <ExperimentLoader implementation="com.google.idea.common.experiments.SystemPropertyExperimentLoader" order="first" id="SystemPropertyExperimentLoader"/>
     <ExperimentLoader implementation="com.google.idea.common.experiments.UserOverridesExperimentLoader" order="after SystemPropertyExperimentLoader" id="UserOverridesExperimentLoader"/>
-    <ExperimentLoader implementation="com.google.idea.common.experiments.DefaultValuesExperimentLoader" order="before WebExperimentLoader" id="DefaultValuesExperimentLoader"/>
-    <ExperimentLoader implementation="com.google.idea.common.experiments.WebExperimentLoader" order="last" id="WebExperimentLoader"/>
+    <ExperimentLoader implementation="com.google.idea.common.experiments.DefaultValuesExperimentLoader" order="last" id="DefaultValuesExperimentLoader"/>
   </extensions>
 
   <projectListeners>
