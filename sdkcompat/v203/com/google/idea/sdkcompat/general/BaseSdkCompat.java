@@ -1,5 +1,7 @@
 package com.google.idea.sdkcompat.general;
 
+import com.intellij.ide.util.projectWizard.WizardContext;
+import com.intellij.ide.wizard.AbstractWizard;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
@@ -8,15 +10,15 @@ import com.intellij.openapi.externalSystem.service.project.IdeModifiableModelsPr
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.ModifiableRootModel;
 import com.intellij.openapi.roots.libraries.Library;
+import com.intellij.openapi.ui.TextComponentAccessor;
 import com.intellij.openapi.vcs.FilePath;
 import com.intellij.openapi.vcs.changes.ui.ChangesListView;
 import com.intellij.ui.IconManager;
+import com.intellij.ui.TextFieldWithStoredHistory;
 import com.intellij.usageView.UsageTreeColors;
 import com.intellij.usageView.UsageTreeColorsScheme;
 import com.intellij.usages.TextChunk;
-import com.intellij.util.indexing.diagnostic.ProjectIndexingHistory.IndexingTimes;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -24,6 +26,11 @@ import javax.annotation.Nullable;
 /** Provides SDK compatibility shims for base plugin API classes, available to all IDEs. */
 public final class BaseSdkCompat {
   private BaseSdkCompat() {}
+
+  /** #api212: inline into FileSelectorWithStoredHistory */
+  public static final TextComponentAccessor<TextFieldWithStoredHistory>
+      TEXT_FIELD_WITH_STORED_HISTORY_WHOLE_TEXT =
+          TextComponentAccessor.TEXT_FIELD_WITH_STORED_HISTORY_WHOLE_TEXT;
 
   /** #api203: refactor this function back into CodesearchResultData and make it private. */
   public static void addLineNumber(int lineNumber, List<TextChunk> chunks) {
@@ -56,28 +63,6 @@ public final class BaseSdkCompat {
     IconManager.activate();
   }
 
-  /** #api203: inline this method into IndexingLogger */
-  public static Duration getTotalUpdatingTime(IndexingTimes times) {
-    if (times.getTotalEnd() == null || times.getTotalStart() == null) {
-      return Duration.ZERO;
-    }
-    return Duration.between(times.getTotalStart(), times.getTotalEnd());
-  }
-  /** #api203: inline this method into IndexingLogger */
-  public static Duration getScanFilesDuration(IndexingTimes times) {
-    if (times.getScanFilesEnd() == null || times.getScanFilesStart() == null) {
-      return Duration.ZERO;
-    }
-    return Duration.between(times.getScanFilesStart(), times.getScanFilesEnd());
-  }
-  /** #api203: inline this method into IndexingLogger */
-  public static Duration getTotalIndexingTime(IndexingTimes times) {
-    if (times.getIndexingDuration() == null) {
-      return Duration.ZERO;
-    }
-    return times.getIndexingDuration();
-  }
-
   /**
    * See {@link ModifiableRootModel#addLibraryEntry(Library)}.
    *
@@ -100,5 +85,10 @@ public final class BaseSdkCompat {
    */
   public static IdeModifiableModelsProvider createModifiableModelsProvider(Project project) {
     return new IdeModifiableModelsProviderImpl(project);
+  }
+
+  /** #api212: inline into BlazeNewProjectWizard */
+  public static void setContextWizard(WizardContext context, AbstractWizard<?> wizard) {
+    context.setWizard(wizard);
   }
 }
