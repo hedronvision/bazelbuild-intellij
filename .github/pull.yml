@@ -1,7 +1,7 @@
 # Configure automatic pull and merge from upstream, notifying CS to resolve conflicts
 version: "1"
 rules:
-  - base: master
+  - base: main
     upstream: bazelbuild:master
     mergeMethod: merge
     conflictReviewers:
