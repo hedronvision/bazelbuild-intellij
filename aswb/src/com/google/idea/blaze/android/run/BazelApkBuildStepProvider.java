@@ -17,9 +17,9 @@ package com.google.idea.blaze.android.run;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.idea.blaze.android.run.binary.mobileinstall.BlazeApkBuildStepMobileInstall;
-import com.google.idea.blaze.android.run.runner.BlazeApkBuildStep;
-import com.google.idea.blaze.android.run.runner.BlazeApkBuildStepNormalBuild;
+import com.google.idea.blaze.android.run.binary.mobileinstall.MobileInstallBuildStep;
+import com.google.idea.blaze.android.run.runner.ApkBuildStep;
+import com.google.idea.blaze.android.run.runner.FullApkBuildStep;
 import com.google.idea.blaze.base.model.primitives.Label;
 import com.google.idea.blaze.base.settings.BuildSystem;
 import com.intellij.openapi.project.Project;
@@ -27,7 +27,7 @@ import com.intellij.openapi.project.Project;
 /** Provides APK build step for Bazel projects. */
 public class BazelApkBuildStepProvider implements ApkBuildStepProvider {
   @Override
-  public BlazeApkBuildStep getBuildStep(
+  public ApkBuildStep getBuildStep(
       Project project,
       boolean useMobileInstall,
       Label label,
@@ -35,9 +35,9 @@ public class BazelApkBuildStepProvider implements ApkBuildStepProvider {
       ImmutableList<String> exeFlags,
       String launchId) {
     if (useMobileInstall) {
-      return new BlazeApkBuildStepMobileInstall(project, label, blazeFlags, exeFlags, launchId);
+      return new MobileInstallBuildStep(project, label, blazeFlags, exeFlags, launchId);
     } else {
-      return new BlazeApkBuildStepNormalBuild(project, label, blazeFlags);
+      return new FullApkBuildStep(project, label, blazeFlags);
     }
   }
 

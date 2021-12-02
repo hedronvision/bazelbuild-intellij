@@ -29,15 +29,15 @@ import com.android.tools.idea.run.tasks.LaunchTasksProvider;
 import com.android.tools.idea.run.util.LaunchStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.idea.blaze.android.run.binary.mobileinstall.BlazeApkBuildStepMobileInstall;
+import com.google.idea.blaze.android.run.binary.mobileinstall.MobileInstallBuildStep;
 import com.google.idea.blaze.android.run.deployinfo.BlazeAndroidDeployInfo;
 import com.google.idea.blaze.android.run.deployinfo.BlazeApkProviderService;
+import com.google.idea.blaze.android.run.runner.ApkBuildStep;
 import com.google.idea.blaze.android.run.runner.BlazeAndroidDeviceSelector;
 import com.google.idea.blaze.android.run.runner.BlazeAndroidLaunchTasksProvider;
 import com.google.idea.blaze.android.run.runner.BlazeAndroidRunContext;
-import com.google.idea.blaze.android.run.runner.BlazeApkBuildStep;
-import com.google.idea.blaze.android.run.runner.BlazeApkBuildStepNormalBuild;
 import com.google.idea.blaze.android.run.runner.BlazeInstrumentationTestApkBuildStep;
+import com.google.idea.blaze.android.run.runner.FullApkBuildStep;
 import com.google.idea.blaze.android.run.test.BlazeAndroidTestLaunchMethodsProvider.AndroidTestLaunchMethod;
 import com.google.idea.blaze.base.model.primitives.Label;
 import com.google.idea.blaze.base.run.BlazeCommandRunConfiguration;
@@ -64,7 +64,7 @@ abstract class BlazeAndroidTestRunContextBase implements BlazeAndroidRunContext 
   protected final ImmutableList<String> blazeFlags;
   protected final List<Runnable> launchTaskCompleteListeners = Lists.newArrayList();
   protected final ConsoleProvider consoleProvider;
-  protected final BlazeApkBuildStep buildStep;
+  protected final ApkBuildStep buildStep;
   protected final ApplicationIdProvider applicationIdProvider;
   protected final ApkProvider apkProvider;
 
@@ -86,14 +86,13 @@ abstract class BlazeAndroidTestRunContextBase implements BlazeAndroidRunContext 
     this.configState = configState;
 
     if (configState.getLaunchMethod().equals(AndroidTestLaunchMethod.MOBILE_INSTALL)) {
-      this.buildStep =
-          new BlazeApkBuildStepMobileInstall(project, label, blazeFlags, exeFlags, launchId);
+      this.buildStep = new MobileInstallBuildStep(project, label, blazeFlags, exeFlags, launchId);
     } else if (runConfiguration.getTargetKind()
         == AndroidBlazeRules.RuleTypes.ANDROID_INSTRUMENTATION_TEST.getKind()) {
       // android_instrumentation_test builds both test and app target APKs.
       this.buildStep = new BlazeInstrumentationTestApkBuildStep(project, label, blazeFlags);
     } else {
-      this.buildStep = new BlazeApkBuildStepNormalBuild(project, label, blazeFlags);
+      this.buildStep = new FullApkBuildStep(project, label, blazeFlags);
     }
 
     this.applicationIdProvider = new BlazeAndroidTestApplicationIdProvider(buildStep);
@@ -147,7 +146,7 @@ abstract class BlazeAndroidTestRunContextBase implements BlazeAndroidRunContext 
 
   @Nullable
   @Override
-  public BlazeApkBuildStep getBuildStep() {
+  public ApkBuildStep getBuildStep() {
     return buildStep;
   }
 
