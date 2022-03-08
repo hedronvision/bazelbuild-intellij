@@ -5,11 +5,11 @@ INDIRECT_IJ_PRODUCTS = {
     # Indirect ij_product mapping for internal Blaze Plugin
     "intellij-latest": "intellij-2021.2",
     "intellij-latest-mac": "intellij-2021.2-mac",
-    "intellij-beta": "intellij-2021.2",
+    "intellij-beta": "intellij-2021.3",
     "intellij-under-dev": "intellij-2021.3",
     "intellij-ue-latest": "intellij-ue-2021.2",
     "intellij-ue-latest-mac": "intellij-ue-2021.2-mac",
-    "intellij-ue-beta": "intellij-ue-2021.2",
+    "intellij-ue-beta": "intellij-ue-2021.3",
     "intellij-ue-under-dev": "intellij-ue-2021.3",
     "android-studio-latest": "android-studio-2020.3",
     "android-studio-latest-mac": "android-studio-2021.2-mac",
@@ -18,7 +18,7 @@ INDIRECT_IJ_PRODUCTS = {
     "android-studio-canary": "android-studio-2021.2",
     "clion-latest": "clion-2021.2",
     "clion-latest-mac": "clion-2021.2-mac",
-    "clion-beta": "clion-2021.2",
+    "clion-beta": "clion-2021.3",
     "clion-under-dev": "clion-2021.3",
     # Indirect ij_product mapping for Bazel Plugin OSS
     "intellij-oss-stable": "intellij-2021.3",
