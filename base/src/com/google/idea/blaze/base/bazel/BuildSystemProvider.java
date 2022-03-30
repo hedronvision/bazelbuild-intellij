@@ -21,7 +21,6 @@ import com.google.idea.blaze.base.io.FileOperationProvider;
 import com.google.idea.blaze.base.lang.buildfile.language.semantics.RuleDefinition;
 import com.google.idea.blaze.base.model.BlazeVersionData;
 import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
-import com.google.idea.blaze.base.settings.BuildBinaryType;
 import com.google.idea.blaze.base.settings.BuildSystemName;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.fileTypes.ExactFileNameMatcher;
@@ -103,15 +102,6 @@ public interface BuildSystemProvider {
   }
 
   /**
-   * Returns the type of the blaze/bazel binary to use for syncing.
-   *
-   * @deprecated The sync binary type can no longer be determined statically. Code using this should
-   *     be refactored accordingly.
-   */
-  @Deprecated
-  BuildBinaryType getSyncBinaryType();
-
-  /**
    * Returns true if syncing is done off the user's local machine.
    *
    * @deprecated Whether syncs happen remotely is not determined statically anymore. Logic depending
@@ -120,9 +110,7 @@ public interface BuildSystemProvider {
    */
   @Deprecated
   default boolean syncingRemotely() {
-    // TODO(brendandouglas): make this configurable based on context, move somewhere more
-    // appropriate
-    return getSyncBinaryType().isRemote;
+    return false;
   }
 
   WorkspaceRootProvider getWorkspaceRootProvider();

@@ -292,8 +292,8 @@ java_library(
 java_library(
     name = "build_batching_service_api",
     srcs = [
+        "src/com/google/idea/blaze/base/bazel/BuildSystem.java",
         "src/com/google/idea/blaze/base/logging/utils/ShardStats.java",
-        "src/com/google/idea/blaze/base/settings/BuildBinaryType.java",
         "src/com/google/idea/blaze/base/sync/sharding/BuildBatchingService.java",
     ],
     neverlink = 1,
@@ -400,8 +400,8 @@ java_library(
         "//intellij_platform_sdk:jsr305",
         "//intellij_platform_sdk:plugin_api_for_tests",
         "//intellij_platform_sdk:test_libs",
-        "//sdkcompat",
         "//testing:lib",
+        "//third_party/auto_value",
         "@junit//jar",
     ],
 )

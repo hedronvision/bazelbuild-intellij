@@ -635,7 +635,7 @@ public class BlazeIdeInterfaceAspectsImpl implements BlazeIdeInterface {
     ToolWindowScope parentToolWindowScope = parentContext.getScope(ToolWindowScope.class);
     Task parentTask = parentToolWindowScope != null ? parentToolWindowScope.getTask() : null;
     childContext.push(
-        new ToolWindowScope.Builder(project, new Task(taskName, taskType, parentTask))
+        new ToolWindowScope.Builder(project, new Task(project, taskName, taskType, parentTask))
             .setIssueParsers(
                 BlazeIssueParser.defaultIssueParsers(project, workspaceRoot, contextType))
             .build());
@@ -664,7 +664,7 @@ public class BlazeIdeInterfaceAspectsImpl implements BlazeIdeInterface {
     boolean onlyDirectDeps =
         viewSet.getScalarValue(AutomaticallyDeriveTargetsSection.KEY).orElse(false);
 
-    try (BuildResultHelper buildResultHelper = invoker.createBuildResultProvider()) {
+    try (BuildResultHelper buildResultHelper = invoker.createBuildResultHelper()) {
 
       BlazeCommand.Builder builder = BlazeCommand.builder(invoker, BlazeCommandName.BUILD);
       builder
@@ -683,7 +683,7 @@ public class BlazeIdeInterfaceAspectsImpl implements BlazeIdeInterface {
 
       return invoker
           .getCommandRunner()
-          .run(project, builder, buildResultHelper, workspaceRoot, context, invoker);
+          .run(project, builder, buildResultHelper, workspaceRoot, context);
     }
   }
 }

@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.idea.blaze.base.async.executor.ProgressiveTaskWithProgressIndicator;
 import com.google.idea.blaze.base.bazel.BuildSystem;
+import com.google.idea.blaze.base.bazel.BuildSystem.SyncStrategy;
 import com.google.idea.blaze.base.command.BlazeInvocationContext.ContextType;
 import com.google.idea.blaze.base.experiments.ExperimentScope;
 import com.google.idea.blaze.base.ideinfo.TargetKey;
@@ -211,7 +212,15 @@ final class SyncPhaseCoordinator {
     if (syncParams.syncMode() == SyncMode.NO_BUILD) {
       return false;
     }
-    return Blaze.getBuildSystemProvider(project).getSyncBinaryType().isRemote;
+    SyncStrategy strategy = buildSystem.getSyncStrategy();
+    switch (strategy) {
+      case DECIDE_AUTOMATICALLY:
+      case PARALLEL:
+        return true;
+      case SERIAL:
+        return false;
+    }
+    throw new IllegalStateException("Invalid sync strategy: " + strategy);
   }
 
   ListenableFuture<Void> syncProject(BlazeSyncParams syncParams, BlazeContext parentContext) {
@@ -234,7 +243,7 @@ final class SyncPhaseCoordinator {
                           context,
                           indicator,
                           singleThreaded ? SyncPhase.ALL_PHASES : SyncPhase.BUILD,
-                          new Task(params.title(), Task.Type.SYNC, parentToolWindowTask),
+                          new Task(project, params.title(), Task.Type.SYNC, parentToolWindowTask),
                           /* startTaskOnScopeBegin= */ true);
                       runSync(params, singleThreaded, context);
                     }));
@@ -268,7 +277,7 @@ final class SyncPhaseCoordinator {
                               context,
                               indicator,
                               SyncPhase.ALL_PHASES,
-                              new Task(params.title(), Task.Type.SYNC),
+                              new Task(project, params.title(), Task.Type.SYNC),
                               /* startTaskOnScopeBegin= */ true);
                           doFilterProjectTargets(params, filter, context);
                         }));
@@ -445,7 +454,7 @@ final class SyncPhaseCoordinator {
     Task toolWindowTask;
     boolean startTaskOnScopeBegin;
     if (syncToolWindowScope == null) {
-      toolWindowTask = new Task(params.title(), Task.Type.SYNC);
+      toolWindowTask = new Task(project, params.title(), Task.Type.SYNC);
       startTaskOnScopeBegin = true;
     } else {
       toolWindowTask = syncToolWindowScope.getTask();

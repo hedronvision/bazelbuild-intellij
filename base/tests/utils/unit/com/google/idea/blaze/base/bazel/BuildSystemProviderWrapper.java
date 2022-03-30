@@ -114,14 +114,6 @@ public class BuildSystemProviderWrapper implements BuildSystemProvider {
   }
 
   @Override
-  public BuildBinaryType getSyncBinaryType() {
-    if (buildBinaryType != null) {
-      return buildBinaryType;
-    }
-    return inner.getSyncBinaryType();
-  }
-
-  @Override
   public WorkspaceRootProvider getWorkspaceRootProvider() {
     return inner().getWorkspaceRootProvider();
   }
@@ -176,7 +168,7 @@ public class BuildSystemProviderWrapper implements BuildSystemProvider {
    * wrapped instance.
    *
    * @param supplier A supplier that will be called for each call to {@link
-   *     BuildInvoker#createBuildResultProvider}.
+   *     BuildInvoker#createBuildResultHelper}.
    */
   public void setBuildResultHelperSupplier(Supplier<BuildResultHelper> supplier) {
     buildResultHelperSupplier = supplier;
@@ -230,11 +222,11 @@ public class BuildSystemProviderWrapper implements BuildSystemProvider {
 
     @Override
     @MustBeClosed
-    public BuildResultHelper createBuildResultProvider() {
+    public BuildResultHelper createBuildResultHelper() {
       if (buildResultHelperSupplier != null) {
         return buildResultHelperSupplier.get();
       }
-      return inner.createBuildResultProvider();
+      return inner.createBuildResultHelper();
     }
 
     @Override
