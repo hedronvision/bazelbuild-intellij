@@ -77,7 +77,8 @@ public class KotlinDebuggerRunner extends BlazeJavaDebuggerRunner {
       BlazeJavaRunProfileState state, String libAbsolutePath, ExecutionEnvironment env) {
     state.addKotlinxCoroutinesJavaAgent(libAbsolutePath);
 
-    var unused =
+    //noinspection unused go/checkreturnvalue
+    DebuggerConnection unused =
         new DebuggerConnection(
             env.getProject(),
             /*configuration=*/ null,
