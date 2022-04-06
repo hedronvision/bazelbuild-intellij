@@ -16,16 +16,16 @@
 package com.google.idea.blaze.base.toolwindow;
 
 import com.google.common.base.MoreObjects;
-import com.intellij.ide.projectView.PresentationData;
-import com.intellij.ide.util.treeView.PresentableNodeDescriptor;
+import com.intellij.ide.nls.NlsMessages;
 import com.intellij.openapi.project.Project;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Represents a Blaze Outputs Tool Window Task, which can be hierarchical. */
-public final class Task extends PresentableNodeDescriptor<Task> {
-
+public final class Task {
+  private final Project project;
   private final String name;
   private final Type type;
   @Nullable private Task parent;
@@ -53,18 +53,12 @@ public final class Task extends PresentableNodeDescriptor<Task> {
    * @param parent parent of the new task, null if the new task is a top level task.
    */
   public Task(Project project, String name, Type type, @Nullable Task parent) {
-    super(project, parent);
+    this.project = project;
     this.name = name;
     this.type = type;
     this.parent = parent;
   }
 
-  @Override
-  protected void update(PresentationData presentationData) {
-    presentationData.setPresentableText(getName());
-  }
-
-  @Override
   public String getName() {
     return name;
   }
@@ -117,9 +111,21 @@ public final class Task extends PresentableNodeDescriptor<Task> {
     return Optional.ofNullable(endTime);
   }
 
-  @Override
-  public Task getElement() {
-    return this;
+  Optional<String> getDurationString() {
+    Optional<Instant> start = getStartTime();
+    return start
+        .map(
+            startTime ->
+                Duration.between(startTime, getEndTime().orElse(Instant.now())).toSeconds())
+        .map(
+            duration ->
+                duration < 1
+                    ? getEndTime().isEmpty() ? "0 sec" : "<1 sec"
+                    : NlsMessages.formatDuration(duration * 1000));
+  }
+
+  Project getProject() {
+    return project;
   }
 
   @Override
