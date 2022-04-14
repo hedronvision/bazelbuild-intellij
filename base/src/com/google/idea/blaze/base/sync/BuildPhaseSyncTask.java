@@ -174,7 +174,7 @@ final class BuildPhaseSyncTask {
     buildStats.setTargets(targets);
     notifyBuildStarted(context, syncParams.addProjectViewTargets(), ImmutableList.copyOf(targets));
 
-    BuildInvoker localInvoker = buildSystem.getBuildInvoker(project);
+    BuildInvoker localInvoker = buildSystem.getBuildInvoker(project, context);
 
     ShardedTargetsResult shardedTargetsResult =
         BlazeBuildTargetSharder.expandAndShardTargets(
@@ -214,6 +214,7 @@ final class BuildPhaseSyncTask {
     if (syncBuildInvoker == null) {
       syncBuildInvoker = localInvoker;
     }
+    resultBuilder.setBlazeInfo(syncBuildInvoker.getBlazeInfo());
 
     buildStats
         .setSyncSharded(shardedTargets.shardCount() > 1)
