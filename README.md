@@ -49,30 +49,7 @@ correct `ij_product`. These are in the form `<IDE>-oss-<VERSION>` with
   * `<IDE>` being one of `intellij-ue, intellij, clion, android-studio`, 
   * `<VERSION>` being one of `stable, beta, under-dev`.
 
-Note that there is a difference between `intellij` and `intellij-ue`.
-`ue` stands for IntelliJ Ultimate Edition and contains additional 
-features for JavaScript as well as Go.
-
-If you are using the most recent version of your IDE, you likely want
-`--define=ij_product=<IDE>-oss-beta` which will be the next version after
-`<IDE>-oss-stable`. Additionally, `under-dev` can be a largely untested `alpha` 
-build of an upcoming version. A complete mapping of all currently defined 
-versions can be found in  `intellij_platform_sdk/build_defs.bzl`.
-
-You can import the project into IntelliJ (with the Bazel plugin)
-via importing the `ijwb/ijwb.bazelproject` file.
-
-## Compatibility with IDE Versions
-
-You can build the plugin for different IDE versions by adjusting the `ij_product` 
-option either from command line or by updating the `.bazelproject` file to specify
-the correct value for `ij_product` under `build_flags`. 
-
-We have three aliases for product versions;
-  * `stable` is the IDE version supported by the Bazel plugin released to 
-  the JetBrains stable channel.
-  * `beta` is the IDE version supported by the Bazel plugin released to
-  the JetBrains Beta channel.
-  * `under-dev` is the IDE version we are currently working towards supporting.
-
-The current corresponding IDE versions of these aliases can be found [here](./intellij_platform_sdk/build_defs.bzl#L31).
+If you are  using the most recent version of your IDE, you likely want
+`--define=ij_product=<IDE>-beta` which will be the next version after
+`<IDE>-latest`.  A complete mapping of all currently defined versions can
+be found in  `intellij_platform_sdk/build_defs.bzl`.
