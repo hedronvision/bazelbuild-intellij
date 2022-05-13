@@ -190,8 +190,8 @@ http_archive(
 http_archive(
     name = "android_studio_2021_2",
     build_file = "@//intellij_platform_sdk:BUILD.android_studio212",
-    sha256 = "3a4130a56e8fc1569af672936bc8694624ab22d0bea572f143166ba6056f23f1",
-    url = "https://dl.google.com/dl/android/studio/ide-zips/2021.2.1.13/android-studio-2021.2.1.13-linux.tar.gz",
+    sha256 = "e98bb08ae6b4eaa9401b555a294d98615a6ade4c85b43c630a880313eab3c7b3",
+    url = "https://dl.google.com/dl/android/studio/ide-zips/2021.2.1.14/android-studio-2021.2.1.14-linux.tar.gz",
 )
 
 # The plugin api for android_studio_2021_3. This is required to build ASwB,
@@ -199,8 +199,8 @@ http_archive(
 http_archive(
     name = "android_studio_2021_3",
     build_file = "@//intellij_platform_sdk:BUILD.android_studio213",
-    sha256 = "cbbd78efebddae9dfb25a97fa3b42861474dcae076d433fe5cb61ee37937a25b",
-    url = "https://dl.google.com/dl/android/studio/ide-zips/2021.3.1.9/android-studio-2021.3.1.9-linux.tar.gz",
+    sha256 = "3a8d30cb64a259c317d6837caf4f780524c7620b27a2c2030486b138b8dca011",
+    url = "https://dl.google.com/dl/android/studio/ide-zips/2021.3.1.10/android-studio-2021.3.1.10-linux.tar.gz",
 )
 
 # LICENSE: Common Public License 1.0
