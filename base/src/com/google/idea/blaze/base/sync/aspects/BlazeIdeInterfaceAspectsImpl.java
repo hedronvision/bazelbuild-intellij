@@ -81,6 +81,7 @@ import com.google.idea.blaze.base.scope.scopes.TimingScope;
 import com.google.idea.blaze.base.scope.scopes.TimingScope.EventType;
 import com.google.idea.blaze.base.scope.scopes.ToolWindowScope;
 import com.google.idea.blaze.base.settings.Blaze;
+import com.google.idea.blaze.base.settings.BuildBinaryType;
 import com.google.idea.blaze.base.sync.BlazeSyncBuildResult;
 import com.google.idea.blaze.base.sync.SyncProjectState;
 import com.google.idea.blaze.base.sync.aspects.BuildResult.Status;
@@ -120,10 +121,10 @@ import javax.annotation.Nullable;
 
 /** Implementation of BlazeIdeInterface based on aspects. */
 public class BlazeIdeInterfaceAspectsImpl implements BlazeIdeInterface {
-
   private static final Logger logger = Logger.getInstance(BlazeIdeInterfaceAspectsImpl.class);
-  private static final BoolExperiment disableValidationActionExperiment =
-      new BoolExperiment("blaze.sync.disable.valication.action", true);
+
+  private static final BoolExperiment noFakeStampExperiment =
+      new BoolExperiment("blaze.sync.nofake.stamp.data", true);
 
   @Override
   @Nullable
@@ -596,7 +597,7 @@ public class BlazeIdeInterfaceAspectsImpl implements BlazeIdeInterface {
                   + " project view file.",
               String.join(" ", syncOnlyFlags));
       // Print to both summary and print outputs (i.e. main and subtask window of blaze console)
-      context.output(SummaryOutput.output(Prefix.INFO, message));
+      context.output(SummaryOutput.output(Prefix.INFO, message).dedupe());
       context.output(PrintOutput.log(message));
     }
     // Fetching blaze flags here using parent context, to avoid duplicate fetch for every shard.
@@ -725,10 +726,14 @@ public class BlazeIdeInterfaceAspectsImpl implements BlazeIdeInterface {
       builder
           .addTargets(targets)
           .addBlazeFlags(BlazeFlags.KEEP_GOING)
+          .addBlazeFlags(BlazeFlags.DISABLE_VALIDATIONS) // b/145245918: don't run lint during sync
           .addBlazeFlags(buildResultHelper.getBuildFlags())
           .addBlazeFlags(additionalBlazeFlags);
-      if (disableValidationActionExperiment.getValue()) {
-        builder.addBlazeFlags(BlazeFlags.DISABLE_VALIDATIONS);
+
+      // b/236031309: Sync builds that use rabbit-cli rely on build-changelist.txt being populated
+      // with the correct build request id. We force Blaze to emit the correct build-changelist.
+      if (noFakeStampExperiment.getValue() && invoker.getType() == BuildBinaryType.RABBIT) {
+        builder.addBlazeFlags("--nofake_stamp_data");
       }
 
       aspectStrategy.addAspectAndOutputGroups(
