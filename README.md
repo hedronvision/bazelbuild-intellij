@@ -36,9 +36,9 @@ Detailed docs are available [here](http://ij.bazel.build).
 
 Install Bazel, then build the target `*:*_bazel_zip` for your desired product:
 
-* `bazel build //ijwb:ijwb_bazel_zip --define=ij_product=intellij-ue-oss-stable`
-* `bazel build //clwb:clwb_bazel_zip --define=ij_product=clion-oss-stable`
-* `bazel build //aswb:aswb_bazel_zip --define=ij_product=android-studio-oss-stable`
+* `bazel build //ijwb:ijwb_bazel_zip --define=ij_product=intellij-ue-oss-latest-stable`
+* `bazel build //clwb:clwb_bazel_zip --define=ij_product=clion-oss-latest-stable`
+* `bazel build //aswb:aswb_bazel_zip --define=ij_product=android-studio-oss-latest-stable`
 
 from the project root. This will create a plugin zip file at
 `bazel-bin/<PRODUCT>/<PRODUCT>_bazel.zip`, which can be installed directly
@@ -47,9 +47,16 @@ from the IDE. `<PRODUCT>` can be one of `ijwb, clwb, aswb`.
 If the IDE refuses to load the plugin because of version issues, specify the
 correct `ij_product`. These are in the form `<IDE>-oss-<VERSION>` with 
   * `<IDE>` being one of `intellij-ue, intellij, clion, android-studio`, 
-  * `<VERSION>` being one of `stable, beta, under-dev`.
+  * `<VERSION>` being one of `oldest-stable, latest-stable, under-dev`.
 
-If you are  using the most recent version of your IDE, you likely want
-`--define=ij_product=<IDE>-beta` which will be the next version after
-`<IDE>-latest`.  A complete mapping of all currently defined versions can
-be found in  `intellij_platform_sdk/build_defs.bzl`.
+Note that there is a difference between `intellij` and `intellij-ue`.
+`ue` stands for IntelliJ Ultimate Edition and contains additional 
+features for JavaScript as well as Go.
+
+`<IDE>-oss-oldest-stable` and `<IDE>-oss-latest-stable` are aliases for the two IDE versions
+that the plugin is officially compatible with at a given time. `<IDE>-oss-latest-stable` usually 
+maps to the last released IDE version while `<IDE>-oss-oldest-stable` maps to the one right before that, 
+e.g. `<IDE>-oss-oldest-stable=2022.1` and `<IDE>-oss-latest-stable=2022.2`. Additionally, 
+`<IDE>-oss-under-dev` represents the upcoming version of the IDE that we are working towards 
+supporting. A complete mapping of all currently defined versions can be found in 
+`intellij_platform_sdk/build_defs.bzl`.
