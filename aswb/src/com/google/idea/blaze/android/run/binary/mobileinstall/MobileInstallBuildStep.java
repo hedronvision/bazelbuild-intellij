@@ -150,7 +150,6 @@ public class MobileInstallBuildStep implements ApkBuildStep {
       return;
     }
 
-    BuildSystemName buildSystemName = Blaze.getBuildSystemName(project);
     BuildInvoker invoker =
         Blaze.getBuildSystemProvider(project).getBuildSystem().getBuildInvoker(project, context);
     BlazeCommand.Builder command = BlazeCommand.builder(invoker, BlazeCommandName.MOBILE_INSTALL);
@@ -168,8 +167,8 @@ public class MobileInstallBuildStep implements ApkBuildStep {
     }
 
     WorkspaceRoot workspaceRoot = WorkspaceRoot.fromProject(project);
-    final String deployInfoSuffix = getDeployInfoSuffix(buildSystemName);
-
+    BuildSystemName buildSystemName = Blaze.getBuildSystemName(project);
+    String deployInfoSuffix = getDeployInfoSuffix(buildSystemName);
     try (BuildResultHelper buildResultHelper = invoker.createBuildResultHelper();
         AdbTunnelConfigurator tunnelConfig = getTunnelConfigurator(context)) {
       tunnelConfig.setupConnection(context);
@@ -199,8 +198,8 @@ public class MobileInstallBuildStep implements ApkBuildStep {
           .addExeFlags(exeFlags);
 
       if (buildSystemName == BuildSystemName.Blaze) {
-          // MI launches apps by default. Defer app launch to BlazeAndroidLaunchTasksProvider.
-          command.addExeFlags("--nolaunch_app");
+        // MI launches apps by default. Defer app launch to BlazeAndroidLaunchTasksProvider.
+        command.addExeFlags("--nolaunch_app");
       }
 
       if (StudioDeployerExperiment.isEnabled()) {
