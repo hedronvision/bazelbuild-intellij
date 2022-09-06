@@ -15,7 +15,7 @@ INDIRECT_IJ_PRODUCTS = {
     "android-studio-latest-mac": "android-studio-2021.3-mac",
     "android-studio-beta": "android-studio-2021.3",
     "android-studio-beta-mac": "android-studio-2021.3-mac",
-    "android-studio-canary": "android-studio-2021.3",
+    "android-studio-canary": "android-studio-2022.1",
     "clion-latest": "clion-2021.3",
     "clion-latest-mac": "clion-2021.3-mac",
     "clion-beta": "clion-2022.1",
@@ -31,7 +31,7 @@ INDIRECT_IJ_PRODUCTS = {
     "intellij-ue-oss-under-dev": "intellij-ue-2022.2",
     "android-studio-oss-oldest-stable": "android-studio-2021.3",
     "android-studio-oss-latest-stable": "android-studio-2021.3",
-    "android-studio-oss-under-dev": "android-studio-2021.3",
+    "android-studio-oss-under-dev": "android-studio-2022.1",
     "clion-oss-oldest-stable": "clion-2022.1",
     "clion-oss-latest-stable": "clion-2022.2",
     "clion-oss-under-dev": "clion-2022.2",
@@ -109,6 +109,10 @@ DIRECT_IJ_PRODUCTS = {
     "android-studio-2021.3": struct(
         ide = "android-studio",
         directory = "android_studio_2021_3",
+    ),
+    "android-studio-2022.1": struct(
+        ide = "android-studio",
+        directory = "android_studio_2022_1",
     ),
     "clion-2021.2": struct(
         ide = "clion",
@@ -337,6 +341,32 @@ def get_versions_to_build(product):
                 aliases_to_build.append(alias)
 
     return " ".join(aliases_to_build)
+
+def get_unique_supported_oss_ide_versions(product):
+    """"Returns the unique supported IDE versions for the given product in the OSS Bazel plugin
+
+    Args:
+        product: name of the product; android-studio, clion, intellij-ue
+
+    Returns:
+        A space separated list of the aliases of the unique IDE versions for the
+        OSS Bazel plugin.
+    """
+    supported_versions = []
+    unique_aliases = []
+    for alias in ["oss-oldest-stable", "oss-latest-stable"]:
+        indirect_ij_product = product + "-" + alias
+        if indirect_ij_product not in INDIRECT_IJ_PRODUCTS:
+            fail(
+                "Product-version alias %s not found." % indirect_ij_product,
+                "Invalid product: %s, only android-studio, clion and intellij-ue are accepted." % product,
+            )
+        ver = INDIRECT_IJ_PRODUCTS[indirect_ij_product]
+        if ver not in supported_versions:
+            supported_versions.append(ver)
+            unique_aliases.append(alias)
+
+    return " ".join(unique_aliases)
 
 def combine_visibilities(*args):
     """
