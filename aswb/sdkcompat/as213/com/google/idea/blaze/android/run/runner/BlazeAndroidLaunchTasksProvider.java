@@ -34,9 +34,11 @@ import com.android.tools.idea.run.tasks.LaunchTask;
 import com.android.tools.idea.run.tasks.LaunchTasksProvider;
 import com.android.tools.idea.run.tasks.ShowLogcatTask;
 import com.android.tools.idea.run.util.LaunchStatus;
+import com.android.tools.ndk.run.editor.AutoAndroidDebuggerState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.idea.blaze.android.run.binary.UserIdHelper;
+import com.google.idea.blaze.android.run.deployinfo.BlazeAndroidDeployInfo;
 import com.intellij.execution.ExecutionException;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
@@ -138,19 +140,9 @@ public class BlazeAndroidLaunchTasksProvider implements LaunchTasksProvider {
                 project, packageName));
       }
 
-      // Do not get debugger state directly from the debugger itself.
-      // See BlazeAndroidDebuggerService#getDebuggerState for an explanation.
-      BlazeAndroidDebuggerService debuggerService =
-          BlazeAndroidDebuggerService.getInstance(project);
-      AndroidDebugger debugger =
-          debuggerService.getDebugger(isNativeDebuggingEnabled(launchOptions));
-      AndroidDebuggerState debuggerState = debuggerService.getDebuggerState(debugger);
       LaunchTask appLaunchTask =
           runContext.getApplicationLaunchTask(
-              launchOptions,
-              userId,
-              String.join(" ", amStartOptions.build()),
-              launchStatus);
+              launchOptions, userId, String.join(" ", amStartOptions.build()), launchStatus);
       if (appLaunchTask != null) {
         launchTasks.add(appLaunchTask);
       }
@@ -179,15 +171,31 @@ public class BlazeAndroidLaunchTasksProvider implements LaunchTasksProvider {
       return null;
     }
 
-    // Do not get debugger state directly from the debugger itself.
-    // See BlazeAndroidDebuggerService#getDebuggerState for an explanation.
-    BlazeAndroidDebuggerService debuggerService = BlazeAndroidDebuggerService.getInstance(project);
-    AndroidDebugger debugger = debuggerService.getDebugger(isNativeDebuggingEnabled(launchOptions));
-    AndroidDebuggerState debuggerState = debuggerService.getDebuggerState(debugger);
-    if (debugger == null || debuggerState == null) {
-      return null;
+    BlazeAndroidDeployInfo deployInfo;
+    try {
+      deployInfo = runContext.getBuildStep().getDeployInfo();
+    } catch (ApkProvisionException e) {
+      LOG.error(e);
+      deployInfo = null;
     }
 
+    BlazeAndroidDebuggerService debuggerService = BlazeAndroidDebuggerService.getInstance(project);
+    if (isNativeDebuggingEnabled(launchOptions)) {
+      AndroidDebugger<AutoAndroidDebuggerState> debugger = debuggerService.getNativeDebugger();
+      AutoAndroidDebuggerState state = debugger.createState();
+      debuggerService.configureNativeDebugger(state, deployInfo);
+      return getConnectDebuggerTask(launchStatus, debugger, state);
+    } else {
+      AndroidDebugger<AndroidDebuggerState> debugger = debuggerService.getDebugger();
+      return getConnectDebuggerTask(launchStatus, debugger, debugger.createState());
+    }
+  }
+
+  @Nullable
+  private <S extends AndroidDebuggerState> ConnectDebuggerTask getConnectDebuggerTask(
+      @NotNull LaunchStatus launchStatus,
+      @NotNull AndroidDebugger<S> debugger,
+      @NotNull S debuggerState) {
     try {
       return runContext.getDebuggerTask(debugger, debuggerState);
     } catch (ExecutionException e) {

@@ -15,17 +15,27 @@
  */
 package com.google.idea.blaze.android.run;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.idea.blaze.android.run.binary.mobileinstall.MobileInstallBuildStep;
 import com.google.idea.blaze.android.run.runner.ApkBuildStep;
+import com.google.idea.blaze.android.run.runner.BlazeInstrumentationTestApkBuildStep;
 import com.google.idea.blaze.android.run.runner.FullApkBuildStep;
+import com.google.idea.blaze.android.run.runner.InstrumentationInfo;
+import com.google.idea.blaze.android.run.runner.InstrumentationInfo.InstrumentationParserException;
+import com.google.idea.blaze.base.model.BlazeProjectData;
 import com.google.idea.blaze.base.model.primitives.Label;
 import com.google.idea.blaze.base.settings.BuildSystemName;
+import com.google.idea.blaze.base.sync.data.BlazeProjectDataManager;
+import com.intellij.execution.ExecutionException;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 
 /** Provides APK build step for Bazel projects. */
 public class BazelApkBuildStepProvider implements ApkBuildStepProvider {
+  private static final Logger logger = Logger.getInstance(BazelApkBuildStepProvider.class);
+
   @Override
   public ApkBuildStep getBinaryBuildStep(
       Project project,
@@ -39,6 +49,32 @@ public class BazelApkBuildStepProvider implements ApkBuildStepProvider {
     } else {
       return new FullApkBuildStep(project, label, blazeFlags);
     }
+  }
+
+  @Override
+  public ApkBuildStep getAitBuildStep(
+      Project project,
+      boolean useMobileInstall,
+      Label label,
+      ImmutableList<String> blazeFlags,
+      ImmutableList<String> exeFlags,
+      String launchId)
+      throws ExecutionException {
+    if (useMobileInstall) {
+      return new MobileInstallBuildStep(project, label, blazeFlags, exeFlags, launchId);
+    }
+
+    BlazeProjectData data =
+        Preconditions.checkNotNull(
+            BlazeProjectDataManager.getInstance(project).getBlazeProjectData());
+    InstrumentationInfo info;
+    try {
+      info = InstrumentationInfo.getInstrumentationInfo(label, data);
+    } catch (InstrumentationParserException e) {
+      logger.warn("Could not get instrumentation info: " + e.getMessage());
+      throw new ExecutionException(e.getMessage(), e);
+    }
+    return new BlazeInstrumentationTestApkBuildStep(project, info, blazeFlags);
   }
 
   @Override
