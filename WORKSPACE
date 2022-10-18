@@ -257,8 +257,16 @@ http_archive(
 http_archive(
     name = "android_studio_2022_1",
     build_file = "@//intellij_platform_sdk:BUILD.android_studio221",
-    sha256 = "610db4550304f5b436bce23b4567c0d349e97b038bdc3eb2d5d1a03672579c77",
-    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.1.1.11/android-studio-2022.1.1.11-linux.tar.gz",
+    sha256 = "f224853c7d0f4d0933575b7c6c4abb081b4e53ca737670ff3eba557203e73ba4",
+    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.1.1.12/android-studio-2022.1.1.12-linux.tar.gz",
+)
+
+# The plugin api for android_studio_2022_2 android_studio. This is required to build ASwB and run integration tests
+http_archive(
+    name = "android_studio_2022_2",
+    build_file = "@//intellij_platform_sdk:BUILD.android_studio222",
+    sha256 = "a140f4706a18418e2de18d9ea3c689424e6848139a91b59369106ae9e762b372",
+    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.2.1.4/android-studio-2022.2.1.4-linux.tar.gz",
 )
 
 # LICENSE: Common Public License 1.0
@@ -340,6 +348,24 @@ jvm_maven_import_external(
     artifact_sha256 = "f5ee2aac2ee6443789e1dee0f96e3c35d9f3c78891f54ed83f3cf918a1cde6d1",
     licenses = ["notice"],  # Apache 2.0
     server_urls = ["https://repo1.maven.org/maven2"],
+)
+
+jvm_maven_import_external(
+    name = "com_google_guava_guava",
+    artifact = "com.google.guava:guava:31.1-jre",
+    artifact_sha256 = "a42edc9cab792e39fe39bb94f3fca655ed157ff87a8af78e1d6ba5b07c4a00ab",
+    server_urls = [
+        "https://repo1.maven.org/maven2",
+    ],
+)
+
+jvm_maven_import_external(
+    name = "gson",
+    artifact = "com.google.code.gson:gson:2.9.1",
+    artifact_sha256 = "378534e339e6e6d50b1736fb3abb76f1c15d1be3f4c13cec6d536412e23da603",
+    server_urls = [
+        "https://repo1.maven.org/maven2",
+    ],
 )
 
 _JARJAR_BUILD_FILE = """
