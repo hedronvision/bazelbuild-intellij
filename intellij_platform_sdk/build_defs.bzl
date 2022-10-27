@@ -15,7 +15,7 @@ INDIRECT_IJ_PRODUCTS = {
     "android-studio-latest-mac": "android-studio-2021.3-mac",
     "android-studio-beta": "android-studio-2021.3",
     "android-studio-beta-mac": "android-studio-2021.3-mac",
-    "android-studio-canary": "android-studio-2022.1",
+    "android-studio-canary": "android-studio-2022.2",
     "clion-latest": "clion-2021.3",
     "clion-latest-mac": "clion-2021.3-mac",
     "clion-beta": "clion-2022.1",
@@ -31,7 +31,7 @@ INDIRECT_IJ_PRODUCTS = {
     "intellij-ue-oss-under-dev": "intellij-ue-2022.2",
     "android-studio-oss-oldest-stable": "android-studio-2021.3",
     "android-studio-oss-latest-stable": "android-studio-2021.3",
-    "android-studio-oss-under-dev": "android-studio-2022.1",
+    "android-studio-oss-under-dev": "android-studio-2022.2",
     "clion-oss-oldest-stable": "clion-2022.1",
     "clion-oss-latest-stable": "clion-2022.2",
     "clion-oss-under-dev": "clion-2022.2",
@@ -114,6 +114,10 @@ DIRECT_IJ_PRODUCTS = {
         ide = "android-studio",
         directory = "android_studio_2022_1",
     ),
+    "android-studio-2022.2": struct(
+        ide = "android-studio",
+        directory = "android_studio_2022_2",
+    ),
     "clion-2021.2": struct(
         ide = "clion",
         directory = "clion_2021_2",
@@ -147,6 +151,24 @@ DIRECT_IJ_PRODUCTS = {
         directory = "clion_2022_2",
     ),
 }
+
+def plugin_api_dir_name():
+    """Returns the current IJ version subdirectory.
+
+    Returns:
+        The directory within //intellij_platform_sdk that is
+        used to load the plugin API from, according to the current
+        configuration.
+    """
+    select_params = {
+        ("//intellij_platform_sdk:%s" % product): DIRECT_IJ_PRODUCTS[value].directory
+        for (product, value) in INDIRECT_IJ_PRODUCTS.items()
+        if value in DIRECT_IJ_PRODUCTS
+    }
+
+    # Use ij-latest as the default, consistent with select_from_plugin_api_directory
+    select_params["//conditions:default"] = DIRECT_IJ_PRODUCTS[INDIRECT_IJ_PRODUCTS["intellij-latest"]].directory
+    return select(select_params)
 
 def select_for_plugin_api(params):
     """Selects for a plugin_api.

@@ -249,8 +249,8 @@ http_archive(
 http_archive(
     name = "android_studio_2021_3",
     build_file = "@//intellij_platform_sdk:BUILD.android_studio213",
-    sha256 = "1a725b585786f43b944336caf703360446e3f4b5e6e234057ff121e50ef91d9a",
-    url = "https://dl.google.com/dl/android/studio/ide-zips/2021.3.1.16/android-studio-2021.3.1.16-linux.tar.gz",
+    sha256 = "89adb0ce0ffa46b7894e7bfedb142b1f5d52c43c171e6a6cb9a95a49f77756ca",
+    url = "https://dl.google.com/dl/android/studio/ide-zips/2021.3.1.17/android-studio-2021.3.1.17-linux.tar.gz",
 )
 
 # The plugin api for android_studio_2022_1 android_studio. This is required to build ASwB and run integration tests
@@ -265,8 +265,8 @@ http_archive(
 http_archive(
     name = "android_studio_2022_2",
     build_file = "@//intellij_platform_sdk:BUILD.android_studio222",
-    sha256 = "a140f4706a18418e2de18d9ea3c689424e6848139a91b59369106ae9e762b372",
-    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.2.1.4/android-studio-2022.2.1.4-linux.tar.gz",
+    sha256 = "6233f828b4eafc74f7a1b372c7e76276832a09fc84e1c3b2e8857278f1f89c9b",
+    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.2.1.5/android-studio-2022.2.1.5-linux.tar.gz",
 )
 
 # LICENSE: Common Public License 1.0
