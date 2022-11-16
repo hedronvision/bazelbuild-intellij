@@ -229,17 +229,17 @@ _intellij_plugin_jar = rule(
         "_merge_xml_binary": attr.label(
             default = Label("//build_defs:merge_xml"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
         "_append_optional_xml_elements": attr.label(
             default = Label("//build_defs:append_optional_xml_elements"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
         "_package_meta_inf_files": attr.label(
             default = Label("//build_defs:package_meta_inf_files"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
 )
@@ -269,6 +269,7 @@ def intellij_plugin(name, deps, plugin_xml, optional_plugin_xmls = [], jar_name 
         runtime_deps = [":" + java_deps_name] + extra_runtime_deps,
         create_executable = 0,
     )
+
     jar_target_name = name + "_intellij_plugin_jar"
     _intellij_plugin_jar(
         name = jar_target_name,

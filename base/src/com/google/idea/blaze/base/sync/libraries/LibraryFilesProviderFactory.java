@@ -13,15 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.idea.blaze.base.model;
+package com.google.idea.blaze.base.sync.libraries;
 
-import com.intellij.openapi.roots.libraries.Library;
+import com.google.idea.blaze.base.model.BlazeLibrary;
+import com.google.idea.blaze.base.model.LibraryFilesProvider;
+import com.intellij.openapi.project.Project;
 
-/** Provides ability to modify library content in {@link Library.ModifiableModel}. */
-public interface BlazeLibraryModelModifier {
-  /** Writes the library content to its {@link Library.ModifiableModel}. */
-  void updateModifiableModel();
+/** Makes new {@link LibraryFilesProvider}. */
+public interface LibraryFilesProviderFactory {
+  static LibraryFilesProviderFactory getInstance(Project project) {
+    return project.getService(LibraryFilesProviderFactory.class);
+  }
 
-  /** Returns the name of library that the modifier will update. */
-  String getName();
+  LibraryFilesProvider get(BlazeLibrary blazeLibrary);
 }
