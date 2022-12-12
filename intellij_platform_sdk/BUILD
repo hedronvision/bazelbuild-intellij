@@ -273,7 +273,6 @@ config_setting(
     },
 )
 
-
 config_setting(
     name = "android-studio-latest",
     values = {
@@ -316,6 +315,21 @@ config_setting(
     values = {
         "cpu": "darwin_x86_64",
         "define": "ij_product=android-studio-canary",
+    },
+)
+
+config_setting(
+    name = "android-studio-dev",
+    values = {
+        "define": "ij_product=android-studio-dev",
+    },
+)
+
+config_setting(
+    name = "android-studio-dev-mac",
+    values = {
+        "cpu": "darwin_x86_64",
+        "define": "ij_product=android-studio-dev",
     },
 )
 
@@ -524,6 +538,7 @@ config_setting(
         "define": "ij_product=clion-2022.3",
     },
 )
+
 # The purpose of this rule is to hide the versioning
 # complexity from users of this api.
 # There will be additional versions added in the future
@@ -638,6 +653,7 @@ java_library(
         "android-studio-2021.3": ["@jsr305_annotations//jar"],
         "android-studio-2022.1": ["@jsr305_annotations//jar"],
         "android-studio-2022.2": ["@jsr305_annotations//jar"],
+        "android-studio-dev": ["@jsr305_annotations//jar"],
         # We default to intellij-latest when no plugin api is selected.
         "default": [":bundled_jsr305"],
     }),

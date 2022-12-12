@@ -26,6 +26,7 @@ import com.intellij.openapi.actionSystem.Presentation;
 import com.intellij.openapi.actionSystem.ex.CustomComponentAction;
 import com.intellij.openapi.actionSystem.impl.ActionButtonWithText;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.EditorKind;
 import com.intellij.openapi.editor.markup.InspectionWidgetActionProvider;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiDocumentManager;
@@ -48,7 +49,10 @@ public class BuildDependenciesActionProvider implements InspectionWidgetActionPr
   @Nullable
   @Override
   public AnAction createAction(@NotNull Editor editor) {
-    if (!QuerySyncManager.useQuerySync.getValue()) {
+    if (!QuerySync.isEnabled()) {
+      return null;
+    }
+    if (!editor.getEditorKind().equals(EditorKind.MAIN_EDITOR)) {
       return null;
     }
     return new BuildDependencies(editor);

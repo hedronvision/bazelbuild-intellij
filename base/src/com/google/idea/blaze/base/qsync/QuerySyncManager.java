@@ -22,14 +22,15 @@ import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.scope.BlazeScope;
 import com.google.idea.blaze.base.scope.Scope;
 import com.google.idea.blaze.base.scope.ScopedOperation;
+import com.google.idea.blaze.base.scope.scopes.ProblemsViewScope;
 import com.google.idea.blaze.base.scope.scopes.ProgressIndicatorScope;
 import com.google.idea.blaze.base.scope.scopes.ToolWindowScope;
 import com.google.idea.blaze.base.settings.BlazeUserSettings.FocusBehavior;
+import com.google.idea.blaze.base.sync.SyncListener;
 import com.google.idea.blaze.base.sync.SyncMode;
 import com.google.idea.blaze.base.sync.SyncResult;
 import com.google.idea.blaze.base.sync.status.BlazeSyncStatus;
 import com.google.idea.blaze.base.toolwindow.Task;
-import com.google.idea.common.experiments.BoolExperiment;
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -47,8 +48,6 @@ import org.jetbrains.annotations.NotNull;
 
 /** The project component for a query based sync. */
 public class QuerySyncManager {
-
-  public static final BoolExperiment useQuerySync = new BoolExperiment("use.query.sync", false);
 
   private final Project project;
   private final BuildGraph graph;
@@ -71,7 +70,7 @@ public class QuerySyncManager {
     this.projectQuerier = new ProjectQuerier(project, graph);
     this.projectUpdater = new ProjectUpdater(project, graph);
 
-    if (useQuerySync.getValue()) {
+    if (QuerySync.isEnabled()) {
       FileEditorManagerListener listener = new MyFileEditorManagerListener(project);
       project
           .getMessageBus()
@@ -100,6 +99,9 @@ public class QuerySyncManager {
         context -> {
           try {
             projectQuerier.rebuild(context);
+            for (SyncListener syncListener : SyncListener.EP_NAME.getExtensions()) {
+              syncListener.afterSync(project, context);
+            }
           } catch (IOException e) {
             e.printStackTrace();
           }
@@ -124,7 +126,10 @@ public class QuerySyncManager {
                                             .showSummaryOutput()
                                             .setPopupBehavior(FocusBehavior.ALWAYS)
                                             .build();
-                                    context.push(new ProgressIndicatorScope(indicator)).push(scope);
+                                    context
+                                        .push(new ProgressIndicatorScope(indicator))
+                                        .push(scope)
+                                        .push(new ProblemsViewScope(project, FocusBehavior.ALWAYS));
                                     operation.execute(context);
                                     // TODO cancel on exceptions
                                     BlazeSyncStatus.getInstance(project)

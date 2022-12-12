@@ -3,24 +3,24 @@
 # The current indirect ij_product mapping (eg. "intellij-latest")
 INDIRECT_IJ_PRODUCTS = {
     # Indirect ij_product mapping for internal Blaze Plugin
-    "intellij-latest": "intellij-2021.3",
-    "intellij-latest-mac": "intellij-2021.3-mac",
+    "intellij-latest": "intellij-2022.1",
+    "intellij-latest-mac": "intellij-2022.1-mac",
     "intellij-beta": "intellij-2022.1",
-    "intellij-under-dev": "intellij-2022.2",
-    "intellij-ue-latest": "intellij-ue-2021.3",
-    "intellij-ue-latest-mac": "intellij-ue-2021.3-mac",
+    "intellij-under-dev": "intellij-2022.3",
+    "intellij-ue-latest": "intellij-ue-2022.1",
+    "intellij-ue-latest-mac": "intellij-ue-2022.1-mac",
     "intellij-ue-beta": "intellij-ue-2022.1",
-    "intellij-ue-under-dev": "intellij-ue-2022.2",
+    "intellij-ue-under-dev": "intellij-ue-2022.3",
     "android-studio-latest": "android-studio-2021.3",
     "android-studio-latest-mac": "android-studio-2021.3-mac",
     "android-studio-beta": "android-studio-2021.3",
     "android-studio-beta-mac": "android-studio-2021.3-mac",
     "android-studio-canary": "android-studio-2022.2",
     "android-studio-canary-mac": "android-studio-2022.2-mac",
-    "clion-latest": "clion-2021.3",
-    "clion-latest-mac": "clion-2021.3-mac",
+    "clion-latest": "clion-2022.1",
+    "clion-latest-mac": "clion-2022.1-mac",
     "clion-beta": "clion-2022.1",
-    "clion-under-dev": "clion-2022.1",
+    "clion-under-dev": "clion-2022.3",
     # Indirect ij_product mapping for Bazel Plugin OSS
     # The old names for -oss-oldest-stable and -oss-latest-stable were
     # -oss-stable and -oss-beta respectively.
@@ -134,6 +134,10 @@ DIRECT_IJ_PRODUCTS = {
     "android-studio-2022.2": struct(
         ide = "android-studio",
         directory = "android_studio_2022_2",
+    ),
+    "android-studio-dev": struct(
+        ide = "android-studio",
+        directory = "android_studio_dev",
     ),
     "clion-2021.2": struct(
         ide = "clion",
@@ -305,7 +309,18 @@ def _plugin_api_directory(value):
     return "@" + value.directory + "//"
 
 def select_from_plugin_api_directory(intellij, android_studio, clion, intellij_ue = None):
-    """Internal convenience method to generate select statement from the IDE's plugin_api directories."""
+    """Internal convenience method to generate select statement from the IDE's plugin_api directories.
+
+    Args:
+      intellij: the items that IntelliJ product to use.
+      android_studio: the items that android studio product to use.
+      clion: the items that clion product to use.
+      intellij_ue: the items that intellij ue product to use.
+
+    Returns:
+      a select statement map from DIRECT_IJ_PRODUCTS to items that they should use.
+
+    """
 
     ide_to_value = {
         "intellij": intellij,
