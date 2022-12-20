@@ -50,7 +50,6 @@ import com.google.idea.blaze.base.projectview.ProjectViewManager;
 import com.google.idea.blaze.base.projectview.ProjectViewSet;
 import com.google.idea.blaze.base.projectview.section.SectionParser;
 import com.google.idea.blaze.base.projectview.section.sections.BuildFlagsSection;
-import com.google.idea.blaze.base.qsync.BuildGraph;
 import com.google.idea.blaze.base.qsync.QuerySync;
 import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.scope.Scope;
@@ -64,6 +63,7 @@ import com.google.idea.blaze.base.sync.libraries.LibrarySource;
 import com.google.idea.blaze.base.sync.projectview.WorkspaceLanguageSettings;
 import com.google.idea.blaze.base.sync.workspace.ArtifactLocationDecoder;
 import com.google.idea.blaze.base.sync.workspace.WorkingSet;
+import com.google.idea.blaze.common.Context;
 import com.google.idea.blaze.java.projectview.JavaLanguageLevelSection;
 import com.google.idea.blaze.java.sync.JavaLanguageLevelHelper;
 import com.google.idea.blaze.java.sync.model.BlazeJavaSyncData;
@@ -170,8 +170,7 @@ public class BlazeAndroidSyncPlugin implements BlazeSyncPlugin {
   }
 
   @Override
-  public void updateProjectSdk(
-      Project project, BlazeContext context, ProjectViewSet projectViewSet) {
+  public void updateProjectSdk(Project project, Context context, ProjectViewSet projectViewSet) {
     if (QuerySync.isEnabled()) {
       AndroidSdkPlatform androidSdkPlatform =
           AndroidSdkFromProjectView.getAndroidSdkPlatform(context, projectViewSet);
@@ -231,18 +230,19 @@ public class BlazeAndroidSyncPlugin implements BlazeSyncPlugin {
   @Override
   public void updateProjectStructure(
       Project project,
-      BlazeContext context,
+      Context context,
       WorkspaceRoot workspaceRoot,
       Module workspaceModule,
-      BuildGraph buildGraph) {
+      Set<String> androidResourceDirectories,
+      Set<String> androidSourcePackages) {
 
     // Attach AndroidFacet to workspace modules
     AndroidFacetModuleCustomizer.createAndroidFacet(workspaceModule, false);
 
     // Add all source resource directories to this AndroidFacet
     AndroidFacet workspaceFacet = AndroidFacet.getInstance(workspaceModule);
-    ImmutableSet<File> androidResourceDirectories =
-        buildGraph.getAndroidResourceDirectories().stream()
+    ImmutableSet<File> androidResourceDirectoryFiles =
+        androidResourceDirectories.stream()
             .map(dir -> new File(workspaceRoot.directory(), dir).getAbsoluteFile())
             .collect(toImmutableSet());
     NamedIdeaSourceProvider sourceProvider =
@@ -250,7 +250,7 @@ public class BlazeAndroidSyncPlugin implements BlazeSyncPlugin {
                 workspaceModule.getName(), VfsUtilCore.fileToUrl(new File("MissingManifest.xml")))
             .withScopeType(ScopeType.MAIN)
             .withResDirectoryUrls(
-                ContainerUtil.map(androidResourceDirectories, VfsUtilCore::fileToUrl))
+                ContainerUtil.map(androidResourceDirectoryFiles, VfsUtilCore::fileToUrl))
             .build();
 
     // Set AndroidModel for this AndroidFacet
@@ -270,14 +270,14 @@ public class BlazeAndroidSyncPlugin implements BlazeSyncPlugin {
             desugarJava8Libs);
     AndroidModel.set(workspaceFacet, androidModel);
     workspaceFacet.getProperties().RES_FOLDERS_RELATIVE_PATH =
-        androidResourceDirectories.stream()
+        androidResourceDirectoryFiles.stream()
             .map(VfsUtilCore::fileToUrl)
             .collect(joining(AndroidFacetProperties.PATH_LIST_SEPARATOR_IN_FACET_CONFIGURATION));
 
     // Register all source java packages as workspace packages
     BlazeLightResourceClassService.Builder rClassBuilder =
         new BlazeLightResourceClassService.Builder(project);
-    rClassBuilder.addWorkspacePackages(buildGraph.getAndroidSourcePackages());
+    rClassBuilder.addWorkspacePackages(androidSourcePackages);
 
     BlazeLightResourceClassService.getInstance(project).installRClasses(rClassBuilder);
   }

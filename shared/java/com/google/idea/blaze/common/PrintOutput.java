@@ -13,17 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.idea.blaze.base.scope.output;
+package com.google.idea.blaze.common;
 
-import com.google.idea.blaze.base.scope.Output;
-import org.jetbrains.annotations.NotNull;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
+import javax.annotation.Nonnull;
 
 /** Output that can be printed to a log. */
 public class PrintOutput implements Output {
 
-  @NotNull private final String text;
+  @Nonnull private final String text;
 
-  @NotNull private final OutputType outputType;
+  @Nonnull private final OutputType outputType;
 
   /** The output type */
   public enum OutputType {
@@ -32,21 +33,21 @@ public class PrintOutput implements Output {
     ERROR
   }
 
-  public PrintOutput(@NotNull String text, @NotNull OutputType outputType) {
+  public PrintOutput(@Nonnull String text, @Nonnull OutputType outputType) {
     this.text = text;
     this.outputType = outputType;
   }
 
-  public PrintOutput(@NotNull String text) {
+  public PrintOutput(@Nonnull String text) {
     this(text, OutputType.NORMAL);
   }
 
-  @NotNull
+  @Nonnull
   public String getText() {
     return text;
   }
 
-  @NotNull
+  @Nonnull
   public OutputType getOutputType() {
     return outputType;
   }
@@ -55,11 +56,26 @@ public class PrintOutput implements Output {
     return new PrintOutput(text);
   }
 
+  @FormatMethod
+  public static PrintOutput output(@FormatString String text, Object... args) {
+    return new PrintOutput(String.format(text, args));
+  }
+
   public static PrintOutput log(String text) {
     return new PrintOutput(text, OutputType.LOGGED);
   }
 
+  @FormatMethod
+  public static PrintOutput log(@FormatString String text, Object... args) {
+    return new PrintOutput(String.format(text, args), OutputType.LOGGED);
+  }
+
   public static PrintOutput error(String text) {
     return new PrintOutput(text, OutputType.ERROR);
+  }
+
+  @FormatMethod
+  public static PrintOutput error(@FormatString String text, Object... args) {
+    return new PrintOutput(String.format(text, args), OutputType.ERROR);
   }
 }

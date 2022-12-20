@@ -30,11 +30,12 @@ import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
 import com.google.idea.blaze.base.projectview.ProjectViewManager;
 import com.google.idea.blaze.base.projectview.ProjectViewSet;
 import com.google.idea.blaze.base.scope.BlazeContext;
-import com.google.idea.blaze.base.scope.output.PrintOutput;
 import com.google.idea.blaze.base.settings.Blaze;
 import com.google.idea.blaze.base.settings.BlazeImportSettings;
 import com.google.idea.blaze.base.settings.BlazeImportSettingsManager;
 import com.google.idea.blaze.base.sync.projectview.ImportRoots;
+import com.google.idea.blaze.common.PrintOutput;
+import com.google.idea.blaze.qsync.BuildGraph;
 import com.intellij.openapi.project.Project;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -103,7 +104,7 @@ public class ProjectQuerier {
         .build()
         .run();
 
-    buildGraph.initialize(root, context, protoFile);
+    buildGraph.initialize(root.directory().toPath().toAbsolutePath(), context, protoFile);
   }
 
   private static List<String> getValidDirectories(

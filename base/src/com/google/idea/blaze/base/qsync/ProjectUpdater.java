@@ -17,20 +17,22 @@ package com.google.idea.blaze.base.qsync;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.idea.blaze.base.model.primitives.WorkspacePath;
 import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
 import com.google.idea.blaze.base.projectview.ProjectViewManager;
 import com.google.idea.blaze.base.projectview.ProjectViewSet;
-import com.google.idea.blaze.base.qsync.BuildGraph.BuildGraphListener;
-import com.google.idea.blaze.base.scope.BlazeContext;
-import com.google.idea.blaze.base.scope.output.PrintOutput;
 import com.google.idea.blaze.base.settings.BlazeImportSettings;
 import com.google.idea.blaze.base.settings.BlazeImportSettingsManager;
 import com.google.idea.blaze.base.sync.BlazeSyncPlugin;
 import com.google.idea.blaze.base.sync.data.BlazeDataStorage;
 import com.google.idea.blaze.base.sync.projectview.ImportRoots;
 import com.google.idea.blaze.base.util.UrlUtil;
+import com.google.idea.blaze.common.Context;
+import com.google.idea.blaze.common.PrintOutput;
+import com.google.idea.blaze.qsync.BuildGraph;
+import com.google.idea.blaze.qsync.BuildGraph.BuildGraphListener;
 import com.google.idea.common.util.Transactions;
 import com.intellij.openapi.externalSystem.service.project.IdeModifiableModelsProvider;
 import com.intellij.openapi.externalSystem.service.project.ProjectDataManager;
@@ -57,9 +59,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -77,7 +81,7 @@ public class ProjectUpdater implements BuildGraphListener {
   }
 
   private Map<String, Map<String, String>> calculateRootSources(
-      BlazeContext context, WorkspaceRoot workspaceRoot, ImportRoots ir, List<String> files)
+      Context context, WorkspaceRoot workspaceRoot, ImportRoots ir, List<String> files)
       throws IOException {
 
     Map<String, Path> allDirs = new TreeMap<>();
@@ -164,7 +168,7 @@ public class ProjectUpdater implements BuildGraphListener {
 
   private static final Pattern PACKAGE_PATTERN = Pattern.compile("^\\s*package\\s+([\\w\\.]+)");
 
-  public static String readPackage(String file) throws IOException {
+  private static String readPackage(String file) throws IOException {
     BufferedReader javaReader =
         new BufferedReader(new InputStreamReader(new FileInputStream(file)));
     String javaLine;
@@ -178,7 +182,7 @@ public class ProjectUpdater implements BuildGraphListener {
   }
 
   @Override
-  public void graphCreated(BlazeContext context) throws IOException {
+  public void graphCreated(Context context) throws IOException {
     BlazeImportSettings importSettings =
         BlazeImportSettingsManager.getInstance(project).getImportSettings();
     WorkspaceRoot workspaceRoot = WorkspaceRoot.fromImportSettings(importSettings);
@@ -190,7 +194,20 @@ public class ProjectUpdater implements BuildGraphListener {
             .build();
 
     Map<String, Map<String, String>> rootToPrefix =
-        calculateRootSources(context, workspaceRoot, ir, graph.getSourceFiles());
+        calculateRootSources(context, workspaceRoot, ir, graph.getJavaSourceFiles());
+
+    ImmutableSet<String> androidResourceDirectories =
+        computeAndroidResourceDirectories(graph.getAllSourceFiles());
+    Set<String> androidSourcePackages =
+        computeAndroidSourcePackages(context, workspaceRoot, rootToPrefix);
+
+    context.output(
+        PrintOutput.log(
+            String.format(
+                "Detected %d android resource directories", androidResourceDirectories.size())));
+    context.output(
+        PrintOutput.log(
+            String.format("Detected %d android resource packages", androidSourcePackages.size())));
 
     ModuleManager moduleManager = ModuleManager.getInstance(project);
 
@@ -243,10 +260,77 @@ public class ProjectUpdater implements BuildGraphListener {
           entry.setScope(DependencyScope.COMPILE);
           entry.setExported(false);
           for (BlazeSyncPlugin syncPlugin : BlazeSyncPlugin.EP_NAME.getExtensions()) {
-            syncPlugin.updateProjectStructure(project, context, workspaceRoot, module, graph);
+            syncPlugin.updateProjectStructure(
+                project,
+                context,
+                workspaceRoot,
+                module,
+                androidResourceDirectories,
+                androidSourcePackages);
           }
           roots.commit();
         });
+  }
+
+  /**
+   * Heuristic for determining Android resource directories, by searching for .xml source files with
+   * /res/ somewhere in the path. To be replaced by a more robust implementation.
+   */
+  private ImmutableSet<String> computeAndroidResourceDirectories(List<String> sourceFiles) {
+    Set<String> directories = new HashSet<>();
+    for (String sourceFile : sourceFiles) {
+      if (sourceFile.endsWith(".xml") && sourceFile.contains("/res/")) {
+        directories.add(sourceFile.substring(0, sourceFile.indexOf("/res/")) + "/res");
+      }
+    }
+    return ImmutableSet.copyOf(directories);
+  }
+
+  /**
+   * Heuristic for computing android source java packages (used in generating R classes). Examines
+   * packages of source files owned by Android targets (at most one file per target). Inefficient
+   * for large projects with many android targets. To be replaced by a more robust implementation.
+   */
+  private Set<String> computeAndroidSourcePackages(
+      Context context, WorkspaceRoot workspaceRoot, Map<String, Map<String, String>> rootToPrefix) {
+    Set<String> androidSourcePackages = new HashSet<>();
+    for (String androidSourceFile : graph.getAndroidSourceFiles()) {
+      boolean found = false;
+      for (Entry<String, Map<String, String>> root : rootToPrefix.entrySet()) {
+        String workspacePath =
+            workspaceRoot.workspacePathFor(new File(androidSourceFile)).toString();
+        if (workspacePath.startsWith(root.getKey())) {
+          String inRoot = workspacePath.substring(root.getKey().length() + 1);
+          Map<String, String> sourceDirs = root.getValue();
+          for (Entry<String, String> prefixes : sourceDirs.entrySet()) {
+            if (inRoot.startsWith(prefixes.getKey())) {
+              found = true;
+              String inSource = inRoot.substring(prefixes.getKey().length());
+              int ix = inRoot.lastIndexOf('/');
+              String suffix = ix != -1 ? inSource.substring(0, ix) : "";
+              if (suffix.startsWith("/")) {
+                suffix = suffix.substring(1);
+              }
+              String pkg = prefixes.getValue();
+              if (!suffix.isEmpty()) {
+                pkg = pkg + "." + suffix.replace('/', '.');
+              }
+              androidSourcePackages.add(pkg);
+              break;
+            }
+          }
+          if (found) {
+            break;
+          }
+        }
+      }
+      if (!found) {
+        context.output(
+            PrintOutput.log(
+                String.format("Android source %s not found in any root", androidSourceFile)));
+      }
+    }
+    return androidSourcePackages;
   }
 
   private Library getOrCreateLibrary(IdeModifiableModelsProvider models, String libraryName) {

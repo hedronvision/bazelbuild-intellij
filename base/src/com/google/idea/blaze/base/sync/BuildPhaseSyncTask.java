@@ -39,7 +39,6 @@ import com.google.idea.blaze.base.projectview.ProjectViewSet;
 import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.scope.Scope;
 import com.google.idea.blaze.base.scope.output.IssueOutput;
-import com.google.idea.blaze.base.scope.output.PrintOutput;
 import com.google.idea.blaze.base.scope.output.StatusOutput;
 import com.google.idea.blaze.base.scope.output.SummaryOutput;
 import com.google.idea.blaze.base.scope.output.SummaryOutput.Prefix;
@@ -62,6 +61,7 @@ import com.google.idea.blaze.base.sync.sharding.BlazeBuildTargetSharder.ShardedT
 import com.google.idea.blaze.base.sync.sharding.ShardedTargetList;
 import com.google.idea.blaze.base.sync.sharding.SuggestBuildShardingNotification;
 import com.google.idea.blaze.base.sync.workspace.WorkingSet;
+import com.google.idea.blaze.common.PrintOutput;
 import com.google.idea.common.experiments.BoolExperiment;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
@@ -421,7 +421,10 @@ public final class BuildPhaseSyncTask {
           context.push(new TimingScope("BlazeBuild", EventType.BlazeInvocation));
           context.output(
               new StatusOutput(
-                  "Building " + Blaze.getBuildSystemName(project).getName() + " targets..."));
+                  String.format(
+                      "Building %s %s targets...",
+                      shardedTargets.getTotalTargets(),
+                      Blaze.getBuildSystemName(project).getName())));
           // We don't want blaze build errors to fail the whole sync
           context.setPropagatesErrors(false);
 

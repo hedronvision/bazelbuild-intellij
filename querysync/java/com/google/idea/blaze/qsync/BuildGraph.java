@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.idea.blaze.base.qsync;
+package com.google.idea.blaze.qsync;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -21,14 +21,13 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Target;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator;
-import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
-import com.google.idea.blaze.base.scope.BlazeContext;
-import com.google.idea.blaze.base.scope.ScopedOperation;
-import com.google.idea.blaze.base.scope.output.PrintOutput;
+import com.google.idea.blaze.common.Context;
+import com.google.idea.blaze.common.PrintOutput;
 import java.io.BufferedInputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,8 +66,6 @@ public class BuildGraph {
   // All dependencies external to this project
   private final Set<String> projectDeps;
 
-  private final Set<String> androidResourceDirectories;
-  private final Set<String> androidSourcePackages;
   private final Set<String> androidTargets;
 
   // Listeners for changes to the build graph
@@ -89,16 +86,20 @@ public class BuildGraph {
     public final int row;
     public final int column;
 
-    public Location(String full, File workspaceRoot) {
-      Matcher matcher = PATTERN.matcher(full);
-      Preconditions.checkArgument(matcher.matches(), "Location not recognized: %s", full);
+    /**
+     * @param location A location as provided by bazel, i.e. {@code /path/to/file:lineno:columnno}
+     * @param workspaceRoot Absolute path to the workspace root bazel was running in
+     */
+    public Location(String location, Path workspaceRoot) {
+      Matcher matcher = PATTERN.matcher(location);
+      Preconditions.checkArgument(matcher.matches(), "Location not recognized: %s", location);
       String file = matcher.group(1);
-      if (!file.startsWith(workspaceRoot.getAbsolutePath())) {
+      if (!file.startsWith(workspaceRoot.toString())) {
         Preconditions.checkArgument(
             file.startsWith(READONLY_WORKSPACE),
             "Path not in workspace not readonly workspace: %s",
             file);
-        file = workspaceRoot.getAbsolutePath() + "/" + file.substring(READONLY_WORKSPACE.length());
+        file = workspaceRoot + "/" + file.substring(READONLY_WORKSPACE.length());
       }
       this.file = file;
       row = Integer.parseInt(matcher.group(2));
@@ -115,9 +116,6 @@ public class BuildGraph {
     ruleDeps = new HashMap<>();
     projectDeps = new HashSet<>();
     listeners = new ArrayList<>();
-
-    androidResourceDirectories = new HashSet<>();
-    androidSourcePackages = new HashSet<>();
     androidTargets = new HashSet<>();
   }
 
@@ -131,12 +129,13 @@ public class BuildGraph {
     projectDeps.clear();
   }
 
-  public void initialize(WorkspaceRoot root, BlazeContext context, String protoFile)
-      throws IOException {
+  public void initialize(Path workspaceRoot, Context context, String protoFile) throws IOException {
     clear();
     // At this point the query is done, and we parse the proto output of it.
     // This for AGSA is 1.6m objects.
-    Map<String, List<String>> packages = new HashMap<>();
+    context.output(PrintOutput.log("Analyzing project structure..."));
+
+    Set<String> packages = new HashSet<>();
     long now = System.nanoTime();
     try (BufferedInputStream fis = new BufferedInputStream(new FileInputStream(protoFile))) {
 
@@ -158,12 +157,12 @@ public class BuildGraph {
           break;
         }
         if (target.getType() == Discriminator.SOURCE_FILE) {
-          Location l = new Location(target.getSourceFile().getLocation(), root.directory());
+          Location l = new Location(target.getSourceFile().getLocation(), workspaceRoot);
           if (l.file.endsWith("/BUILD")) {
-            packages.computeIfAbsent(l.file, x -> new ArrayList<>());
+            packages.add(l.file);
           }
           locations.put(target.getSourceFile().getName(), l);
-          String rel = root.workspacePathFor(new File(l.file)).toString();
+          String rel = workspaceRoot.relativize(Paths.get(l.file)).toString();
           fileToTarget.put(rel, target.getSourceFile().getName());
         } else if (target.getType() == Discriminator.RULE) {
           ruleCount.compute(target.getRule().getRuleClass(), (k, v) -> (v == null ? 0 : v) + 1);
@@ -232,17 +231,7 @@ public class BuildGraph {
       }
 
       long elapsedMs = (System.nanoTime() - now) / 1000000L;
-      context.output(
-          PrintOutput.log(String.format("Processed %d targets, in %d ms", nTargets, elapsedMs)));
-
-      doTimedOperation(
-          context,
-          "Detected Android resource directories",
-          c -> this.androidResourceDirectories.addAll(computeAndroidResourceDirectories()));
-      doTimedOperation(
-          context,
-          "Detected Android source packages",
-          c -> this.androidSourcePackages.addAll(computeAndroidSourcePackages(c)));
+      context.output(PrintOutput.log("Processed %d targets, in %d ms", nTargets, elapsedMs));
 
       ArrayList<Entry<String, Integer>> entries = new ArrayList<>(ruleCount.entrySet());
       entries.sort(Entry.<String, Integer>comparingByValue().reversed());
@@ -252,29 +241,18 @@ public class BuildGraph {
         if (entry.getValue() <= limit) {
           context.output(
               PrintOutput.log(
-                  String.format(
-                      "[...] truncated %d rules with <= %d count", nTargets - shown, limit)));
+                  "[...] truncated %d rules with <= %d count", nTargets - shown, limit));
           break;
         }
         shown += entry.getValue();
-        context.output(PrintOutput.log(String.format("%s: %d", entry.getKey(), entry.getValue())));
+        context.output(PrintOutput.log("%s: %d", entry.getKey(), entry.getValue()));
       }
-      context.output(PrintOutput.log(String.format("Found source files %d", locations.size())));
+      context.output(PrintOutput.log("Found source files %d", locations.size()));
+      context.output(PrintOutput.log("Found %d targets as java sources", javaSources.size()));
+      context.output(PrintOutput.log("Found %d packages", packages.size()));
+      context.output(PrintOutput.log("Found %d dependencies", deps.size()));
       context.output(
-          PrintOutput.log(String.format("Found %d targets as java sources", javaSources.size())));
-      context.output(PrintOutput.log(String.format("Found %d packages", packages.size())));
-      context.output(PrintOutput.log(String.format("Found %d dependencies", deps.size())));
-      context.output(
-          PrintOutput.log(
-              String.format("Of which %d are to targets outside the project", projectDeps.size())));
-      context.output(
-          PrintOutput.log(
-              String.format(
-                  "Detected %d android resource directories", androidResourceDirectories.size())));
-      context.output(
-          PrintOutput.log(
-              String.format(
-                  "Detected %d android resource packages", androidSourcePackages.size())));
+          PrintOutput.log("Of which %d are to targets outside the project", projectDeps.size()));
 
       int maxDeps = 0;
       String worstSource = null;
@@ -284,9 +262,8 @@ public class BuildGraph {
           worstSource = e.getKey();
         }
       }
-      context.output(
-          PrintOutput.log(String.format("Source with most direct dependencies (%d) is:", maxDeps)));
-      context.output(PrintOutput.log(worstSource));
+      context.output(PrintOutput.log("Source with most direct dependencies (%d) is:", maxDeps));
+      context.output(PrintOutput.log("%s", worstSource));
       for (BuildGraphListener listener : listeners) {
         listener.graphCreated(context);
       }
@@ -295,14 +272,6 @@ public class BuildGraph {
 
   private static boolean isJavaRule(String ruleClass) {
     return JAVA_RULE_TYPES.contains(ruleClass) || ANDROID_RULE_TYPES.contains(ruleClass);
-  }
-
-  private void doTimedOperation(
-      BlazeContext context, String operationName, ScopedOperation operation) {
-    long now = System.nanoTime();
-    operation.execute(context);
-    long elapsedMs = (System.nanoTime() - now) / 1000000L;
-    context.output(PrintOutput.log(String.format("%s in %dms", operationName, elapsedMs)));
   }
 
   /** Recursively get all the transitive deps outside the project */
@@ -350,7 +319,7 @@ public class BuildGraph {
   }
 
   /** Returns a list of all the source files of the project. */
-  public List<String> getSourceFiles() {
+  public List<String> getJavaSourceFiles() {
     List<String> files = new ArrayList<>();
     for (String src : javaSources) {
       Location location = locations.get(src);
@@ -362,62 +331,29 @@ public class BuildGraph {
     return files;
   }
 
-  public ImmutableSet<String> getAndroidSourcePackages() {
-    return ImmutableSet.copyOf(androidSourcePackages);
+  public List<String> getAllSourceFiles() {
+    List<String> files = new ArrayList<>();
+    files.addAll(fileToTarget.keySet());
+    return files;
   }
 
-  public ImmutableSet<String> getAndroidResourceDirectories() {
-    return ImmutableSet.copyOf(androidResourceDirectories);
-  }
-
-  /**
-   * Heuristic for computing android source java packages (used in generating R classes). Examines
-   * packages of source files owned by Android targets (at most one file per target). Inefficient
-   * for large projects with many android targets. To be replaced by a more robust implementation.
-   */
-  private ImmutableSet<String> computeAndroidSourcePackages(BlazeContext context) {
-    int badReads = 0;
-
-    Set<String> packages = new HashSet<>();
-    Set<String> seenTargets = new HashSet<>();
-    for (String javaSource : javaSources) {
-      String owningTarget = sourceOwner.get(javaSource);
-      if (seenTargets.add(owningTarget)
-          && androidTargets.contains(owningTarget)
-          && locations.containsKey(javaSource)) {
-        try {
-          String sourcePackage = ProjectUpdater.readPackage(locations.get(javaSource).file);
-          if (!sourcePackage.isEmpty()) {
-            packages.add(sourcePackage);
-          }
-        } catch (IOException ioe) {
-          badReads++;
+  public List<String> getAndroidSourceFiles() {
+    List<String> files = new ArrayList<>();
+    for (String source : javaSources) {
+      String owningTarget = sourceOwner.get(source);
+      if (androidTargets.contains(owningTarget)) {
+        Location location = locations.get(source);
+        if (location == null) {
+          continue;
         }
+        files.add(location.file);
       }
     }
-    if (badReads > 0) {
-      context.output(
-          PrintOutput.error(String.format("Failed to read packaged from %s files", badReads)));
-    }
-    return ImmutableSet.copyOf(packages);
-  }
-
-  /**
-   * Heuristic for determining Android resource directories, by searching for .xml source files with
-   * /res/ somewhere in the path. To be replaced by a more robust implementation.
-   */
-  private ImmutableSet<String> computeAndroidResourceDirectories() {
-    Set<String> directories = new HashSet<>();
-    for (String sourceFile : this.fileToTarget.keySet()) {
-      if (sourceFile.endsWith(".xml") && sourceFile.contains("/res/")) {
-        directories.add(sourceFile.substring(0, sourceFile.indexOf("/res/")) + "/res");
-      }
-    }
-    return ImmutableSet.copyOf(directories);
+    return files;
   }
 
   /** A listener interface for changes made to the build graph. */
   public interface BuildGraphListener {
-    void graphCreated(BlazeContext context) throws IOException;
+    void graphCreated(Context context) throws IOException;
   }
 }

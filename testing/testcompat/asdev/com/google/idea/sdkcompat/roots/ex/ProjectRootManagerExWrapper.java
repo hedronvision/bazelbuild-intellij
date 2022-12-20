@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 The Bazel Authors. All rights reserved.
+ * Copyright 2021 The Bazel Authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.idea.blaze.base.scope;
+package com.google.idea.sdkcompat.roots.ex;
 
-/** A base interface for contextual output operations. */
-public interface Output {}
+import com.intellij.openapi.project.RootsChangeRescanningInfo;
+import com.intellij.openapi.roots.ex.ProjectRootManagerEx;
+import org.jetbrains.annotations.NotNull;
+
+/** Shim for #api222 compat */
+public abstract class ProjectRootManagerExWrapper extends ProjectRootManagerEx {
+  @Override
+  public void makeRootsChange(
+      @NotNull Runnable runnable, @NotNull RootsChangeRescanningInfo rootsChangeRescanningInfo) {}
+}

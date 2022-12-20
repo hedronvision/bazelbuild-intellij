@@ -26,12 +26,12 @@ import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
 import com.google.idea.blaze.base.model.primitives.WorkspaceType;
 import com.google.idea.blaze.base.projectview.ProjectViewSet;
 import com.google.idea.blaze.base.projectview.section.SectionParser;
-import com.google.idea.blaze.base.qsync.BuildGraph;
 import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.sync.libraries.LibrarySource;
 import com.google.idea.blaze.base.sync.projectview.WorkspaceLanguageSettings;
 import com.google.idea.blaze.base.sync.workspace.ArtifactLocationDecoder;
 import com.google.idea.blaze.base.sync.workspace.WorkingSet;
+import com.google.idea.blaze.common.Context;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
@@ -141,8 +141,7 @@ public interface BlazeSyncPlugin {
   default void createSdks(Project project, BlazeProjectData blazeProjectData) {}
 
   /** Updates the sdk for the project -- only used for the new query-sync */
-  default void updateProjectSdk(
-      Project project, BlazeContext context, ProjectViewSet projectViewSet) {}
+  default void updateProjectSdk(Project project, Context context, ProjectViewSet projectViewSet) {}
 
   /** Updates the sdk for the project. */
   default void updateProjectSdk(
@@ -172,10 +171,11 @@ public interface BlazeSyncPlugin {
   /** Modifies the IDE project structure -- only used for the new query-sync */
   default void updateProjectStructure(
       Project project,
-      BlazeContext context,
+      Context context,
       WorkspaceRoot workspaceRoot,
       Module workspaceModule,
-      BuildGraph buildGraph) {}
+      Set<String> androidResourceDirectories,
+      Set<String> androidSourcePackages) {}
 
   /**
    * Updates in-memory state that isn't serialized by IntelliJ.
