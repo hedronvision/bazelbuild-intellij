@@ -45,7 +45,7 @@ public abstract class BuildGraphData {
   /** A set of all the targets that show up in java rules 'src' attributes */
   abstract ImmutableSet<String> javaSources();
   /** A map from a file path to its target */
-  abstract ImmutableMap<String, String> fileToTarget();
+  abstract ImmutableMap<Path, String> fileToTarget();
   /** From source target to the rule that builds it. If multiple one is picked. */
   abstract ImmutableMap<String, String> sourceOwner();
   /**
@@ -84,7 +84,7 @@ public abstract class BuildGraphData {
 
     public abstract ImmutableSet.Builder<String> javaSourcesBuilder();
 
-    public abstract ImmutableMap.Builder<String, String> fileToTargetBuilder();
+    public abstract ImmutableMap.Builder<Path, String> fileToTargetBuilder();
 
     public abstract Builder sourceOwner(Map<String, String> value);
 
@@ -111,30 +111,23 @@ public abstract class BuildGraphData {
   /** Represents a location on a file. */
   public static class Location {
 
-    // TODO does this belong in the open source code? Should it be encapsulated somehow else?
-    private static final String READONLY_WORKSPACE = "/workspace/READONLY/google3/";
     private static final Pattern PATTERN = Pattern.compile("(.*):(\\d+):(\\d+)");
 
-    public final String file;
+    public final Path file; // Relative to workspace root
     public final int row;
     public final int column;
 
     /**
-     * @param location A location as provided by bazel, i.e. {@code /path/to/file:lineno:columnno}
-     * @param workspaceRoot Absolute path to the workspace root bazel was running in
+     * @param location A location as provided by bazel, i.e. {@code path/to/file:lineno:columnno}
      */
-    public Location(String location, Path workspaceRoot) {
+    public Location(String location) {
       Matcher matcher = PATTERN.matcher(location);
       Preconditions.checkArgument(matcher.matches(), "Location not recognized: %s", location);
-      String file = matcher.group(1);
-      if (!file.startsWith(workspaceRoot.toString())) {
-        Preconditions.checkArgument(
-            file.startsWith(READONLY_WORKSPACE),
-            "Path not in workspace not readonly workspace: %s",
-            file);
-        file = workspaceRoot + "/" + file.substring(READONLY_WORKSPACE.length());
-      }
-      this.file = file;
+      file = Path.of(matcher.group(1));
+      Preconditions.checkState(
+          !file.startsWith("/"),
+          "Filename starts with /: ensure that "
+              + "`--relative_locations=true` was specified in the query invocation.");
       row = Integer.parseInt(matcher.group(2));
       column = Integer.parseInt(matcher.group(3));
     }
@@ -166,7 +159,8 @@ public abstract class BuildGraphData {
    * would have everything the file needs to be compiled.
    */
   public String getTargetOwner(String path) {
-    String syncTarget = fileToTarget().get(path);
+    // TODO make the parameter a Path
+    String syncTarget = fileToTarget().get(Path.of(path));
     return sourceOwner().get(syncTarget);
   }
 
@@ -183,9 +177,9 @@ public abstract class BuildGraphData {
     return getTargetDependencies(target);
   }
 
-  /** Returns a list of all the source files of the project. */
-  public List<String> getJavaSourceFiles() {
-    List<String> files = new ArrayList<>();
+  /** Returns a list of all the source files of the project, relative to the workspace root. */
+  public List<Path> getJavaSourceFiles() {
+    List<Path> files = new ArrayList<>();
     for (String src : javaSources()) {
       Location location = locations().get(src);
       if (location == null) {
@@ -196,14 +190,15 @@ public abstract class BuildGraphData {
     return files;
   }
 
-  public List<String> getAllSourceFiles() {
-    List<String> files = new ArrayList<>();
+  public List<Path> getAllSourceFiles() {
+    List<Path> files = new ArrayList<>();
     files.addAll(fileToTarget().keySet());
     return files;
   }
 
-  public List<String> getAndroidSourceFiles() {
-    List<String> files = new ArrayList<>();
+  /** Returns a list of source files owned by an Android target, relative to the workspace root. */
+  public List<Path> getAndroidSourceFiles() {
+    List<Path> files = new ArrayList<>();
     for (String source : javaSources()) {
       String owningTarget = sourceOwner().get(source);
       if (androidTargets().contains(owningTarget)) {
