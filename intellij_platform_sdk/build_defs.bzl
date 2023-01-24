@@ -13,8 +13,8 @@ INDIRECT_IJ_PRODUCTS = {
     "intellij-ue-under-dev": "intellij-ue-2022.3",
     "android-studio-latest": "android-studio-2021.3",
     "android-studio-latest-mac": "android-studio-2021.3-mac",
-    "android-studio-beta": "android-studio-2021.3",
-    "android-studio-beta-mac": "android-studio-2021.3-mac",
+    "android-studio-beta": "android-studio-2022.1",
+    "android-studio-beta-mac": "android-studio-2022.1-mac",
     "android-studio-canary": "android-studio-2022.2",
     "android-studio-canary-mac": "android-studio-2022.2-mac",
     "android-studio-dev": "android-studio-dev",
@@ -41,14 +41,6 @@ INDIRECT_IJ_PRODUCTS = {
 }
 
 DIRECT_IJ_PRODUCTS = {
-    "intellij-2021.2": struct(
-        ide = "intellij",
-        directory = "intellij_ce_2021_2",
-    ),
-    "intellij-2021.2-mac": struct(
-        ide = "intellij",
-        directory = "intellij_ce_2021_2",
-    ),
     "intellij-2021.3": struct(
         ide = "intellij",
         directory = "intellij_ce_2021_3",
@@ -80,14 +72,6 @@ DIRECT_IJ_PRODUCTS = {
     "intellij-2022.3-mac": struct(
         ide = "intellij",
         directory = "intellij_ce_2022_3",
-    ),
-    "intellij-ue-2021.2": struct(
-        ide = "intellij-ue",
-        directory = "intellij_ue_2021_2",
-    ),
-    "intellij-ue-2021.2-mac": struct(
-        ide = "intellij-ue",
-        directory = "intellij_ue_2021_2",
     ),
     "intellij-ue-2021.3": struct(
         ide = "intellij-ue",
@@ -136,14 +120,6 @@ DIRECT_IJ_PRODUCTS = {
     "android-studio-dev": struct(
         ide = "android-studio",
         directory = "android_studio_dev",
-    ),
-    "clion-2021.2": struct(
-        ide = "clion",
-        directory = "clion_2021_2",
-    ),
-    "clion-2021.2-mac": struct(
-        ide = "clion",
-        directory = "clion_2021_2",
     ),
     "clion-2021.3": struct(
         ide = "clion",
