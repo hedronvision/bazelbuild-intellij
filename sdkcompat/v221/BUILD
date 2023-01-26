@@ -8,7 +8,6 @@ java_library(
     name = "v221",
     srcs = glob([
         "com/google/idea/sdkcompat/general/**",
-        "com/google/idea/sdkcompat/indexing/**",
         "com/google/idea/sdkcompat/logging/**",
         "com/google/idea/sdkcompat/platform/**",
         "com/google/idea/sdkcompat/python/**",
@@ -21,6 +20,7 @@ java_library(
         ]),
         clion = glob([
             "com/google/idea/sdkcompat/cpp/**",
+            "com/google/idea/sdkcompat/clion/**" # For classes incompatible with Android Studio
         ]),
         intellij = glob([
             "com/google/idea/sdkcompat/java/**",
