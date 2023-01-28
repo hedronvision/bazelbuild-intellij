@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.idea.blaze.common.Context;
 import com.google.idea.blaze.common.Output;
 import java.io.IOException;
@@ -167,5 +168,101 @@ public class GraphToProjectConverterTest {
         .containsExactly(
             "repackaged", "",
             "", "com.test");
+  }
+
+  @Test
+  public void testCalculateAndroidResourceDirectories_single_directory() {
+    ImmutableList<Path> sourceFiles =
+        ImmutableList.of(
+            Path.of("java/com/test/AndroidManifest.xml"),
+            Path.of("java/com/test/res/values/strings.xml"));
+
+    ImmutableSet<Path> androidResourceDirectories =
+        GraphToProjectConverter.computeAndroidResourceDirectories(sourceFiles);
+    assertThat(androidResourceDirectories).containsExactly(Path.of("java/com/test/res"));
+  }
+
+  @Test
+  public void testCalculateAndroidResourceDirectories_multiple_directories() {
+    ImmutableList<Path> sourceFiles =
+        ImmutableList.of(
+            Path.of("java/com/test/AndroidManifest.xml"),
+            Path.of("java/com/test/res/values/strings.xml"),
+            Path.of("java/com/test2/AndroidManifest.xml"),
+            Path.of("java/com/test2/res/layout/some-activity.xml"),
+            Path.of("java/com/test2/res/layout/another-activity.xml"));
+
+    ImmutableSet<Path> androidResourceDirectories =
+        GraphToProjectConverter.computeAndroidResourceDirectories(sourceFiles);
+    assertThat(androidResourceDirectories)
+        .containsExactly(Path.of("java/com/test/res"), Path.of("java/com/test2/res"));
+  }
+
+  @Test
+  public void testCalculateAndroidResourceDirectories_manifest_without_res_directory() {
+    ImmutableList<Path> sourceFiles =
+        ImmutableList.of(
+            Path.of("java/com/nores/AndroidManifest.xml"), Path.of("java/com/nores/Foo.java"));
+
+    ImmutableSet<Path> androidResourceDirectories =
+        GraphToProjectConverter.computeAndroidResourceDirectories(sourceFiles);
+    assertThat(androidResourceDirectories).isEmpty();
+  }
+
+  @Test
+  public void testCalculateAndroidSourcePackages_rootWithEmptyPrefix() {
+    GraphToProjectConverter converter =
+        new GraphToProjectConverter(
+            s -> null, TEST_CONTEXT, ImmutableList.of(), ImmutableList.of());
+
+    ImmutableList<Path> androidSourceFiles =
+        ImmutableList.of(
+            Path.of("java/com/example/foo/Foo.java"), Path.of("java/com/example/bar/Bar.java"));
+    ImmutableMap<String, Map<String, String>> rootToPrefix =
+        ImmutableMap.of("java/com/example", ImmutableMap.of("", "com.example"));
+
+    ImmutableSet<String> androidResourcePackages =
+        converter.computeAndroidSourcePackages(androidSourceFiles, rootToPrefix);
+    assertThat(androidResourcePackages).containsExactly("com.example.foo", "com.example.bar");
+  }
+
+  @Test
+  public void testCalculateAndroidSourcePackages_emptyRootWithPrefix() {
+    GraphToProjectConverter converter =
+        new GraphToProjectConverter(
+            s -> null, TEST_CONTEXT, ImmutableList.of(), ImmutableList.of());
+
+    ImmutableList<Path> androidSourceFiles =
+        ImmutableList.of(
+            Path.of("some_project/java/com/example/foo/Foo.java"),
+            Path.of("some_project/java/com/example/bar/Bar.java"));
+    ImmutableMap<String, Map<String, String>> rootToPrefix =
+        ImmutableMap.of("some_project", ImmutableMap.of("java", ""));
+
+    ImmutableSet<String> androidResourcePackages =
+        converter.computeAndroidSourcePackages(androidSourceFiles, rootToPrefix);
+    assertThat(androidResourcePackages).containsExactly("com.example.foo", "com.example.bar");
+  }
+
+  @Test
+  public void testCalculateAndroidSourcePackages_emptyRootAndNonEmptyRoot() {
+    GraphToProjectConverter converter =
+        new GraphToProjectConverter(
+            s -> null, TEST_CONTEXT, ImmutableList.of(), ImmutableList.of());
+
+    ImmutableList<Path> androidSourceFiles =
+        ImmutableList.of(
+            Path.of("some_project/java/com/example/foo/Foo.java"),
+            Path.of("java/com/example/bar/Bar.java"));
+    ImmutableMap<String, Map<String, String>> rootToPrefix =
+        ImmutableMap.of(
+            "some_project",
+            ImmutableMap.of("java", ""),
+            "java/com/example",
+            ImmutableMap.of("", "com.example"));
+
+    ImmutableSet<String> androidResourcePackages =
+        converter.computeAndroidSourcePackages(androidSourceFiles, rootToPrefix);
+    assertThat(androidResourcePackages).containsExactly("com.example.foo", "com.example.bar");
   }
 }

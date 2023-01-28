@@ -207,11 +207,12 @@ public class GraphToProjectConverter {
    * Heuristic for determining Android resource directories, by searching for .xml source files with
    * /res/ somewhere in the path. To be replaced by a more robust implementation.
    */
-  private ImmutableSet<Path> computeAndroidResourceDirectories(List<Path> sourceFiles) {
+  @VisibleForTesting
+  public static ImmutableSet<Path> computeAndroidResourceDirectories(List<Path> sourceFiles) {
     Set<Path> directories = new HashSet<>();
     for (Path sourceFile : sourceFiles) {
 
-      if (sourceFile.getFileName().endsWith(".xml")) {
+      if (sourceFile.getFileName().toString().endsWith(".xml")) {
         List<Path> pathParts = Lists.newArrayList(sourceFile);
         int resPos = pathParts.indexOf(Path.of("res"));
         if (resPos > 0) {
@@ -227,7 +228,8 @@ public class GraphToProjectConverter {
    * packages of source files owned by Android targets (at most one file per target). Inefficient
    * for large projects with many android targets. To be replaced by a more robust implementation.
    */
-  private ImmutableSet<String> computeAndroidSourcePackages(
+  @VisibleForTesting
+  public ImmutableSet<String> computeAndroidSourcePackages(
       List<Path> androidSourceFiles, Map<String, Map<String, String>> rootToPrefix) {
     ImmutableSet.Builder<String> androidSourcePackages = ImmutableSet.builder();
     for (Path androidSourceFile : androidSourceFiles) {
@@ -293,5 +295,4 @@ public class GraphToProjectConverter {
         && (relativePath.toString().length() == rootDirectoryString.length()
             || (relativePath.toString().charAt(rootDirectoryString.length()) == '/'));
   }
-
 }
