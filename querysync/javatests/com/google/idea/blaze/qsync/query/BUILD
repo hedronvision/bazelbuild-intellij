@@ -1,6 +1,7 @@
 java_library(
     name = "QuerySummaryTestUtil",
     srcs = ["QuerySummaryTestUtil.java"],
+    visibility = ["//querysync/javatests/com/google/idea/blaze/qsync:__subpackages__"],
     deps = [
         "//querysync/java/com/google/idea/blaze/qsync/query:querysummary_java_proto",
     ],
@@ -15,7 +16,7 @@ java_test(
         "//querysync/java/com/google/idea/blaze/qsync/query",
         "//querysync/java/com/google/idea/blaze/qsync/query:querysummary_java_proto",
         "//querysync/javatests/com/google/idea/blaze/qsync/testdata",
-        "@com_google_guava_guava//jar",
+        "//shared",
         "@junit//jar",
         "@truth//jar",
     ],

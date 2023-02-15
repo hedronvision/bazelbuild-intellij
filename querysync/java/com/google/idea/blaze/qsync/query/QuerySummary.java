@@ -15,15 +15,18 @@
  */
 package com.google.idea.blaze.qsync.query;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Suppliers;
+import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Target;
+import com.google.idea.blaze.common.Label;
+import com.google.idea.blaze.qsync.query.Query.SourceFile;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -32,8 +35,6 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * Summaries the output from a {@code query} invocation into just the data needed by the rest of
@@ -51,16 +52,15 @@ import java.util.function.Supplier;
  * <p>Instances of the the {@link Query.Summary} proto are maintained in memory so data should not
  * be added to it unnecessarily.
  */
-public class QuerySummary {
+@AutoValue
+public abstract class QuerySummary {
 
-  public static final QuerySummary EMPTY = new QuerySummary(Query.Summary.getDefaultInstance());
+  public static final QuerySummary EMPTY = create(Query.Summary.getDefaultInstance());
 
-  private final Query.Summary proto;
-  private final Supplier<ImmutableSet<Path>> packages = Suppliers.memoize(this::derivePackages);
+  public abstract Query.Summary proto();
 
-  @VisibleForTesting
-  QuerySummary(Query.Summary proto) {
-    this.proto = proto;
+  public static QuerySummary create(Query.Summary proto) {
+    return new AutoValue_QuerySummary(proto);
   }
 
   public static QuerySummary create(InputStream protoInputStream) throws IOException {
@@ -91,6 +91,9 @@ public class QuerySummary {
               // This is not strictly correct, as source files of rule with 'export' do not
               // depend on exported targets.
               rule.addAllDeps(a.getStringListValueList());
+            } else if (a.getName().equals("$junit")) {
+              // android_local_test depends on junit implicitly using the _junit attribute.
+              rule.addDeps(a.getStringValue());
             } else if (a.getName().equals("idl_srcs")) {
               rule.addAllIdlSources(a.getStringListValueList());
             }
@@ -101,7 +104,7 @@ public class QuerySummary {
           break;
       }
     }
-    return new QuerySummary(
+    return create(
         Query.Summary.newBuilder().putAllSourceFiles(sourceFileMap).putAllRules(ruleMap).build());
   }
 
@@ -109,17 +112,30 @@ public class QuerySummary {
     return create(new BufferedInputStream(new FileInputStream(protoFile)));
   }
 
-  private static Path blazePackageFromTargetName(String target) {
-    Preconditions.checkState(target.startsWith("//"), "Invalid target: %s", target);
-    int colonPos = target.indexOf(':');
-    Preconditions.checkState(colonPos > 1, "Invalid target: %s", target);
-    return Path.of(target.substring(2, colonPos));
+  public static Builder newBuilder() {
+    return new Builder();
   }
 
-  private ImmutableSet<Path> derivePackages() {
-    return proto.getRulesMap().keySet().stream()
-        .map(QuerySummary::blazePackageFromTargetName)
-        .collect(toImmutableSet());
+  /**
+   * Returns the map of source files included in the query output.
+   *
+   * <p>This is a map of source target label to the {@link SourceFile} proto representing it.
+   */
+  @Memoized
+  public ImmutableMap<Label, SourceFile> getSourceFilesMap() {
+    return proto().getSourceFilesMap().entrySet().stream()
+        .collect(toImmutableMap(e -> Label.of(e.getKey()), Map.Entry::getValue));
+  }
+
+  /**
+   * Returns the map of rules included in the query output.
+   *
+   * <p>This is a map of rule label to the {@link Query.Rule} proto representing it.
+   */
+  @Memoized
+  public ImmutableMap<Label, Query.Rule> getRulesMap() {
+    return proto().getRulesMap().entrySet().stream()
+        .collect(toImmutableMap(e -> Label.of(e.getKey()), Map.Entry::getValue));
   }
 
   /**
@@ -127,8 +143,9 @@ public class QuerySummary {
    *
    * <p>The packages are workspace relative paths that contain a BUILD file.
    */
+  @Memoized
   public ImmutableSet<Path> getPackages() {
-    return packages.get();
+    return getRulesMap().keySet().stream().map(Label::getPackage).collect(toImmutableSet());
   }
 
   /**
@@ -149,42 +166,32 @@ public class QuerySummary {
     return Optional.empty();
   }
 
-  public Query.Summary getProto() {
-    return proto;
-  }
-
   /**
-   * Applies a delta to this query summary.
-   *
-   * @param deltaQuery The output from a delta query. This should be a query summary created from
-   *     the set packages affected by some workspace file changes, and encapsulated by {@link
-   *     AffectedPackages}.
-   * @param deletedPackages The set of deleted build packages from {@link AffectedPackages}.
-   * @return A new query summary, the effects of the {@code deltaQuery} applied to {@code this}.
+   * Builder for {@link QuerySummary}. This should be used when constructing a summary from a map of
+   * source files and rules. To construct one from a serialized proto, you should use {@link
+   * QuerySummary#create(InputStream)} instead.
    */
-  public QuerySummary applyDelta(QuerySummary deltaQuery, Set<Path> deletedPackages) {
-    // copy all unaffected rules / source files to result:
-    Map<String, Query.SourceFile> newSourceFiles = Maps.newHashMap();
-    for (Map.Entry<String, Query.SourceFile> sfEntry : proto.getSourceFilesMap().entrySet()) {
-      Path buildPackage = blazePackageFromTargetName(sfEntry.getKey());
-      if (!(deletedPackages.contains(buildPackage)
-          || deltaQuery.getPackages().contains(buildPackage))) {
-        newSourceFiles.put(sfEntry.getKey(), sfEntry.getValue());
-      }
-    }
-    Map<String, Query.Rule> newRules = Maps.newHashMap();
-    for (Map.Entry<String, Query.Rule> ruleEntry : proto.getRulesMap().entrySet()) {
-      Path buildPackage = blazePackageFromTargetName(ruleEntry.getKey());
-      if (!(deletedPackages.contains(buildPackage)
-          || deltaQuery.getPackages().contains(buildPackage))) {
-        newRules.put(ruleEntry.getKey(), ruleEntry.getValue());
-      }
+  public static class Builder {
+    private final Query.Summary.Builder builder = Query.Summary.newBuilder();
+
+    Builder() {}
+
+    public Builder putAllSourceFiles(Map<Label, Query.SourceFile> sourceFileMap) {
+      builder.putAllSourceFiles(
+          sourceFileMap.entrySet().stream()
+              .collect(toImmutableMap(e -> e.getKey().toString(), Map.Entry::getValue)));
+      return this;
     }
 
-    // now add all rules / source files from the delta
-    newSourceFiles.putAll(deltaQuery.getProto().getSourceFilesMap());
-    newRules.putAll(deltaQuery.getProto().getRulesMap());
-    return new QuerySummary(
-        Query.Summary.newBuilder().putAllSourceFiles(newSourceFiles).putAllRules(newRules).build());
+    public Builder putAllRules(Map<Label, Query.Rule> rulesMap) {
+      builder.putAllRules(
+          rulesMap.entrySet().stream()
+              .collect(toImmutableMap(e -> e.getKey().toString(), Map.Entry::getValue)));
+      return this;
+    }
+
+    public QuerySummary build() {
+      return QuerySummary.create(builder.build());
+    }
   }
 }
