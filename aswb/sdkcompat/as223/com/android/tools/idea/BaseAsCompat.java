@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 The Bazel Authors. All rights reserved.
+ * Copyright 2022 The Bazel Authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.idea.blaze.android.run;
+package com.android.tools.idea;
 
-import org.jetbrains.android.facet.AndroidFacet;
-import org.jetbrains.android.sdk.AndroidPlatform;
-import org.jetbrains.annotations.Nullable;
+/** Simple compat utilities across various versions of AS plugin SDK. */
+public class BaseAsCompat {
 
-/** Compat utilities for obtaining an {@link AndroidPlatform}. #api3.6 */
-public class AndroidPlatformCompat {
-  private AndroidPlatformCompat() {}
-
-  @Nullable
-  public static AndroidPlatform getAndroidPlatform(AndroidFacet facet) {
-    return AndroidPlatform.getInstance(facet.getModule());
-  }
+  private BaseAsCompat() {}
 }

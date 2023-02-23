@@ -13,31 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.idea.blaze.qsync;
+package com.google.idea.blaze.base.qsync;
 
+import com.google.errorprone.annotations.MustBeClosed;
+import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.qsync.query.QuerySpec;
-import com.google.idea.blaze.qsync.query.QuerySummary;
-import java.util.Optional;
+import java.io.IOException;
+import java.io.InputStream;
 
-/** Query strategy used when no update is necessary. Simply returns the previous project state. */
-class NoopProjectUpdate implements ProjectUpdate {
+/** A query sync service that knows how to run queries on bazel projects. */
+public interface QueryRunner {
 
-  private final BlazeProjectSnapshot project;
-
-  public NoopProjectUpdate(BlazeProjectSnapshot project) {
-    this.project = project;
-  }
-
-  @Override
-  public void setQueryOutput(QuerySummary output) {}
-
-  @Override
-  public Optional<QuerySpec> getQuerySpec() {
-    return Optional.empty();
-  }
-
-  @Override
-  public BlazeProjectSnapshot createBlazeProject() {
-    return project;
-  }
+  @MustBeClosed
+  InputStream runQuery(QuerySpec query, BlazeContext context) throws IOException;
 }

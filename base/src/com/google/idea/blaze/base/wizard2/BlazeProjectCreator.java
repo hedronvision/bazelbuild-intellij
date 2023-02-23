@@ -19,7 +19,6 @@ import com.google.idea.sdkcompat.general.BaseSdkCompat;
 import com.intellij.ide.SaveAndSyncHandler;
 import com.intellij.ide.impl.ProjectUtil;
 import com.intellij.ide.util.projectWizard.ProjectBuilder;
-import com.intellij.ide.util.projectWizard.WizardContext;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.components.StorageScheme;
@@ -28,7 +27,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ex.ProjectManagerEx;
 import com.intellij.openapi.roots.ui.configuration.ModulesProvider;
 import com.intellij.openapi.startup.StartupManager;
-import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowId;
@@ -42,40 +40,27 @@ import javax.swing.SwingUtilities;
 class BlazeProjectCreator {
   private static final Logger logger = Logger.getInstance(BlazeProjectCreator.class);
 
-  private final WizardContext wizardContext;
   private final ProjectBuilder projectBuilder;
 
-  BlazeProjectCreator(WizardContext wizardContext, ProjectBuilder projectBuilder) {
-    this.wizardContext = wizardContext;
+  BlazeProjectCreator(ProjectBuilder projectBuilder) {
     this.projectBuilder = projectBuilder;
   }
 
-  void createFromWizard() {
-    try {
-      doCreate();
-    } catch (final IOException e) {
-      logger.error("Project creation failed", e);
-      ApplicationManager.getApplication()
-          .invokeLater(
-              () -> Messages.showErrorDialog(e.getMessage(), "Project Initialization Failed"));
-    }
-  }
-
-  private void doCreate() throws IOException {
-    String projectFilePath = wizardContext.getProjectFileDirectory();
+  public void doCreate(
+      String projectFilePath, String projectName, StorageScheme projectStorageFormat)
+      throws IOException {
 
     File projectDir = new File(projectFilePath).getParentFile();
     logger.assertTrue(
         projectDir != null,
         "Cannot create project in '" + projectFilePath + "': no parent file exists");
     FileUtil.ensureExists(projectDir);
-    if (wizardContext.getProjectStorageFormat() == StorageScheme.DIRECTORY_BASED) {
+    if (projectStorageFormat == StorageScheme.DIRECTORY_BASED) {
       final File ideaDir = new File(projectFilePath, Project.DIRECTORY_STORE_FOLDER);
       FileUtil.ensureExists(ideaDir);
     }
 
-    String name = wizardContext.getProjectName();
-    Project newProject = projectBuilder.createProject(name, projectFilePath);
+    Project newProject = projectBuilder.createProject(projectName, projectFilePath);
     if (newProject == null) {
       return;
     }
