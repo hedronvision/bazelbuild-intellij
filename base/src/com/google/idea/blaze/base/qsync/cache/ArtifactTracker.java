@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -57,10 +56,19 @@ public class ArtifactTracker {
   private final SetMultimap<Label, Label> topLevelTargetToDeps = HashMultimap.create();
 
   private final SetMultimap<Label, String> targetToArtifacts = HashMultimap.create();
+
+  private static final String LIBRARY_DIRECTORY = "libraries";
+  private static final String AAR_DIRECTORY = "aars";
+  public static final String GEN_SRC_DIRECTORY = "generated";
+
   private final JarCache jarCache;
 
   public ArtifactTracker(Project project) {
-    jarCache = new JarCache(getProjectDirectory(project).resolve("libraries"));
+    jarCache =
+        new JarCache(
+            getProjectDirectory(project).resolve(LIBRARY_DIRECTORY),
+            getExternalAarDirectory(project),
+            getProjectDirectory(project).resolve(GEN_SRC_DIRECTORY));
     initialize();
   }
 
@@ -97,11 +105,18 @@ public class ArtifactTracker {
         ArtifactDiff diff = diffArtifacts(artifactInfo);
         removed = jarCache.remove(diff.getToRemoveKey());
         removedBuilder.addAll(removed);
+
+        ImmutableSet<String> artifactsToUpdate = diff.getToUpdateKey();
         updatedBuilder.addAll(
             jarCache.cache(
-                diff.getToUpdateKey().stream()
-                    .map(outputInfo::getArtifact)
-                    .filter(Objects::nonNull)
+                outputInfo.getJars().stream()
+                    .filter(jar -> artifactsToUpdate.contains(jar.getKey()))
+                    .collect(toImmutableSet()),
+                outputInfo.getAars().stream()
+                    .filter(aar -> artifactsToUpdate.contains(aar.getKey()))
+                    .collect(toImmutableSet()),
+                outputInfo.getGeneratedSources().stream()
+                    .filter(source -> artifactsToUpdate.contains(source.getKey()))
                     .collect(toImmutableSet())));
       } finally {
         updateMaps(artifactInfo, removed);
@@ -214,6 +229,10 @@ public class ArtifactTracker {
     }
 
     return BlazeDataStorage.getProjectDataDir(importSettings).toPath();
+  }
+
+  public static Path getExternalAarDirectory(Project project) {
+    return getProjectDirectory(project).resolve(AAR_DIRECTORY);
   }
 
   /** A data class representing the result of updating artifacts. */

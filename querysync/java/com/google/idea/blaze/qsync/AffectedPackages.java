@@ -18,6 +18,7 @@ package com.google.idea.blaze.qsync;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import java.nio.file.Path;
+import java.util.Collection;
 
 /**
  * Encapsulates build packages that are affected by changes to files in the project view, and logic
@@ -38,12 +39,41 @@ abstract class AffectedPackages {
    */
   public abstract boolean isIncomplete();
 
-  static AffectedPackages create(
-      ImmutableSet<Path> modifiedPackages, ImmutableSet<Path> deletedPackages, boolean incomplete) {
-    return new AutoValue_AffectedPackages(modifiedPackages, deletedPackages, incomplete);
+  /**
+   * Modified sources that are outside of any build package. This can be benign (e.g. a README file)
+   * or may indicate a problem with the build rules.
+   */
+  public abstract ImmutableSet<Path> getUnownedSources();
+
+  static Builder builder() {
+    return new AutoValue_AffectedPackages.Builder()
+        .setIncomplete(false)
+        .setUnownedSources(ImmutableSet.of());
   }
 
   public boolean isEmpty() {
     return getModifiedPackages().isEmpty() && getDeletedPackages().isEmpty();
+  }
+
+  @AutoValue.Builder
+  abstract static class Builder {
+
+    public abstract ImmutableSet.Builder<Path> modifiedPackagesBuilder();
+
+    public void addAffectedPackage(Path packagePath) {
+      modifiedPackagesBuilder().add(packagePath);
+    }
+
+    public abstract ImmutableSet.Builder<Path> deletedPackagesBuilder();
+
+    public void addDeletedPackage(Path packagePath) {
+      deletedPackagesBuilder().add(packagePath);
+    }
+
+    public abstract Builder setUnownedSources(Collection<Path> unownedSources);
+
+    public abstract Builder setIncomplete(boolean value);
+
+    public abstract AffectedPackages build();
   }
 }
