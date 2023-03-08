@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.idea.blaze.qsync;
+package com.google.idea.blaze.qsync.project;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.idea.blaze.qsync.QuerySyncTestUtils.NOOP_CONTEXT;
+import static com.google.idea.blaze.qsync.QuerySyncTestUtils.getQuerySummary;
 
 import com.google.idea.blaze.common.Label;
-import com.google.idea.blaze.qsync.query.QuerySummary;
+import com.google.idea.blaze.qsync.BlazeQueryParser;
 import com.google.idea.blaze.qsync.testdata.TestData;
-import java.io.IOException;
 import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,10 +34,6 @@ public class BuildGraphTest {
       Path.of("querysync/javatests/com/google/idea/blaze/qsync");
 
   private static final Path TESTDATA_ROOT = TEST_ROOT.resolve("testdata");
-
-  private static QuerySummary getQuerySummary(TestData genQueryName) throws IOException {
-    return QuerySummary.create(TestData.getPathFor(genQueryName).toFile());
-  }
 
   @Test
   public void testJavaLibraryNoDeps() throws Exception {

@@ -46,7 +46,9 @@ import com.google.idea.blaze.base.toolwindow.Task;
 import com.google.idea.blaze.common.Label;
 import com.google.idea.blaze.common.PrintOutput;
 import com.google.idea.blaze.qsync.BlazeProject;
-import com.google.idea.blaze.qsync.BlazeProjectSnapshot;
+import com.google.idea.blaze.qsync.project.BlazeProjectSnapshot;
+import com.google.idea.blaze.qsync.project.PostQuerySyncData;
+import com.google.idea.blaze.qsync.project.ProjectDefinition;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.DumbService;
@@ -59,7 +61,25 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
 
-/** The project component for a query based sync. */
+/**
+ * The project component for a query based sync.
+ *
+ * <p>This class manages sync'ing the intelliJ project state to the state of the Bazel project in
+ * the workspace, as well as building dependencies of the project.
+ *
+ * <p>The sync'd state of a project is represented by {@link BlazeProjectSnapshot}. During the sync
+ * process, different parts of that are available at different phases:
+ *
+ * <ul>
+ *   <li>{@link ProjectDefinition}: the input to the sync process that can be created from the
+ *       project configuration. This class remained unchanged throughout sync.
+ *   <li>{@link PostQuerySyncData}: the state after the query invocation has been made, or after a
+ *       delta has been applied to that. This class is the input and output to the partial update
+ *       operation, and also contains the data that will be persisted to disk over an IDE restart.
+ *   <li>{@link BlazeProjectSnapshot}: the full project state, created in the last phase of sync
+ *       from {@link PostQuerySyncData}.
+ * </ul>
+ */
 public class QuerySyncManager {
 
   private final Logger logger = Logger.getInstance(getClass());
@@ -134,9 +154,9 @@ public class QuerySyncManager {
   private void sync(BlazeContext context, boolean full) {
     try {
       BlazeProjectSnapshot newProject =
-          full
+          full || graph.getCurrent().isEmpty()
               ? projectQuerier.fullQuery(context)
-              : projectQuerier.update(graph.getCurrent(), context);
+              : projectQuerier.update(graph.getCurrent().get(), context);
       graph.setCurrent(context, newProject);
       // TODO: Revisit SyncListeners once we switch fully to qsync
       BlazeImportSettings settings =
@@ -144,6 +164,7 @@ public class QuerySyncManager {
       ProjectViewSet projectViewSet = ProjectViewManager.getInstance(project).getProjectViewSet();
       BlazeProjectData data = BlazeProjectDataManager.getInstance(project).getBlazeProjectData();
       for (SyncListener syncListener : SyncListener.EP_NAME.getExtensions()) {
+        // A callback shared between the old and query sync implementations.
         syncListener.onSyncComplete(
             project,
             context,
@@ -154,11 +175,13 @@ public class QuerySyncManager {
             SyncMode.FULL,
             SyncResult.SUCCESS);
       }
-      for (SyncListener syncListener : SyncListener.EP_NAME.getExtensions()) {
-        syncListener.afterSync(project, context);
-      }
     } catch (IOException e) {
       onError("Project sync failed", e, context);
+    } finally {
+      for (SyncListener syncListener : SyncListener.EP_NAME.getExtensions()) {
+        // A query sync specific callback.
+        syncListener.afterSync(project, context);
+      }
     }
   }
 
@@ -178,32 +201,42 @@ public class QuerySyncManager {
     DumbService.getInstance(project)
         .runWhenSmart(
             () -> {
-              ListenableFuture<Boolean> innerResultFuture =
-                  ProgressiveTaskWithProgressIndicator.builder(project, title)
-                      .submitTaskWithResult(
-                          indicator ->
-                              Scope.root(
-                                  context -> {
-                                    Task task = new Task(project, subTitle, Task.Type.SYNC);
-                                    BlazeScope scope =
-                                        new ToolWindowScope.Builder(project, task)
-                                            .setProgressIndicator(indicator)
-                                            .showSummaryOutput()
-                                            .setPopupBehavior(FocusBehavior.ALWAYS)
-                                            .build();
-                                    context
-                                        .push(new ProgressIndicatorScope(indicator))
-                                        .push(scope)
-                                        .push(new ProblemsViewScope(project, FocusBehavior.ALWAYS));
-                                    operation.execute(context);
-                                    // TODO cancel on exceptions
-                                    BlazeSyncStatus.getInstance(project)
-                                        .syncEnded(SyncMode.FULL, SyncResult.SUCCESS);
-                                    return !context.hasErrors();
-                                  }));
-              result.setFuture(innerResultFuture);
+              try {
+                ListenableFuture<Boolean> innerResultFuture =
+                    createAndSubmitRunTask(title, subTitle, operation);
+                result.setFuture(innerResultFuture);
+              } catch (Throwable t) {
+                result.setException(t);
+                throw t;
+              }
             });
     return result;
+  }
+
+  private ListenableFuture<Boolean> createAndSubmitRunTask(
+      String title, String subTitle, ScopedOperation operation) {
+    return ProgressiveTaskWithProgressIndicator.builder(project, title)
+        .submitTaskWithResult(
+            indicator ->
+                Scope.root(
+                    context -> {
+                      Task task = new Task(project, subTitle, Task.Type.SYNC);
+                      BlazeScope scope =
+                          new ToolWindowScope.Builder(project, task)
+                              .setProgressIndicator(indicator)
+                              .showSummaryOutput()
+                              .setPopupBehavior(FocusBehavior.ALWAYS)
+                              .build();
+                      context
+                          .push(new ProgressIndicatorScope(indicator))
+                          .push(scope)
+                          .push(new ProblemsViewScope(project, FocusBehavior.ALWAYS));
+                      operation.execute(context);
+                      // TODO cancel on exceptions
+                      BlazeSyncStatus.getInstance(project)
+                          .syncEnded(SyncMode.FULL, SyncResult.SUCCESS);
+                      return !context.hasErrors();
+                    }));
   }
 
   public void build(BlazeContext context, List<WorkspacePath> wps)
@@ -231,9 +264,5 @@ public class QuerySyncManager {
         dependencyTracker.getPendingTargets(project, psiFile.getVirtualFile());
     int unsynced = pendingTargets == null ? 0 : pendingTargets.size();
     return unsynced == 0;
-  }
-
-  public String getTargetKind(Label target) {
-    return graph.getCurrent().getTargetKind(target);
   }
 }

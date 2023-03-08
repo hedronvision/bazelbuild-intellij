@@ -393,8 +393,8 @@ http_archive(
 http_archive(
     name = "android_studio_2022_3",
     build_file = "@//intellij_platform_sdk:BUILD.android_studio223",
-    sha256 = "3f2c2c2676aa919973fdb37f0c4510b02794002917660c46dd90aa6b0a448ec1",
-    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.3.1.4/android-studio-2022.3.1.4-linux.tar.gz",
+    sha256 = "5584d26479e5c231ceb339b87c07f7c7744d044a3f087f8125bf4ff94f6fb888",
+    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.3.1.7/android-studio-2022.3.1.7-linux.tar.gz",
 )
 
 # LICENSE: Common Public License 1.0
@@ -536,6 +536,17 @@ new_git_repository(
 )
 
 http_archive(
+    name = "rules_python",
+    sha256 = "ffc7b877c95413c82bfd5482c017edcf759a6250d8b24e82f41f3c8b8d9e287e",
+    strip_prefix = "rules_python-0.19.0",
+    url = "https://github.com/bazelbuild/rules_python/releases/download/0.19.0/rules_python-0.19.0.tar.gz",
+)
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
+
+http_archive(
     name = "bazel_skylib",
     sha256 = "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
     urls = [
@@ -570,8 +581,8 @@ bazel_integration_test_rules_dependencies()
 load("@contrib_rules_bazel_integration_test//bazel_integration_test:defs.bzl", "bazel_binaries")
 
 bazel_binaries(versions = [
-    "6.0.0",
     "1.2.0",
+    "6.0.0",
 ])
 
 # LICENSE: The Apache Software License, Version 2.0

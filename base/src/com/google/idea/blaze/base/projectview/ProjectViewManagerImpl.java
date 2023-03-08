@@ -93,10 +93,6 @@ final class ProjectViewManagerImpl extends ProjectViewManager {
       BlazeContext context, WorkspacePathResolver workspacePathResolver) {
     BlazeImportSettings importSettings =
         BlazeImportSettingsManager.getInstance(project).getImportSettings();
-    if (importSettings.getProjectViewFile() == null) {
-      // TODO(mathewi) work out what needs doing here for the new sync flow.
-      return null;
-    }
     File projectViewFile = new File(importSettings.getProjectViewFile());
     ProjectViewParser parser = new ProjectViewParser(context, workspacePathResolver);
     parser.parseProjectView(projectViewFile);
@@ -132,10 +128,8 @@ final class ProjectViewManagerImpl extends ProjectViewManager {
     // otherwise try to compute the workspace path resolver from scratch
     WorkspaceRoot workspaceRoot = WorkspaceRoot.fromProject(project);
     BlazeVcsHandler vcsHandler = BlazeVcsHandlerProvider.vcsHandlerForProject(project);
-    if (vcsHandler == null) {
-      return null;
-    }
-    BlazeVcsHandlerProvider.BlazeVcsSyncHandler vcsSyncHandler = vcsHandler.createSyncHandler();
+    BlazeVcsHandlerProvider.BlazeVcsSyncHandler vcsSyncHandler =
+        vcsHandler != null ? vcsHandler.createSyncHandler() : null;
     if (vcsSyncHandler == null) {
       return new WorkspacePathResolverImpl(workspaceRoot);
     }

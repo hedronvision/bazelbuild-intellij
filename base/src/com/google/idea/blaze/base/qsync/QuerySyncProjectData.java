@@ -39,21 +39,26 @@ public class QuerySyncProjectData implements BlazeProjectData {
 
   private final WorkspacePathResolver workspacePathResolver;
   private final BlazeProject blazeProject;
+  private final WorkspaceLanguageSettings workspaceLanguageSettings;
 
-  QuerySyncProjectData(Project project, BlazeImportSettings importSettings) {
+  QuerySyncProjectData(
+      Project project,
+      BlazeImportSettings importSettings,
+      WorkspaceLanguageSettings workspaceLanguageSettings) {
     blazeProject = QuerySyncManager.getInstance(project).getBlazeProject();
     workspacePathResolver =
         new WorkspacePathResolverImpl(WorkspaceRoot.fromImportSettings(importSettings));
+    this.workspaceLanguageSettings = workspaceLanguageSettings;
   }
 
   @Nullable
   @Override
   public TargetInfo getTargetInfo(Label label) {
-    String kind =
-        blazeProject
-            .getCurrent()
-            .getTargetKind(com.google.idea.blaze.common.Label.of(label.toString()));
-    return kind != null ? TargetInfo.builder(label, kind).build() : null;
+    return blazeProject
+        .getCurrent()
+        .map(s -> s.getTargetKind(com.google.idea.blaze.common.Label.of(label.toString())))
+        .map(kind -> TargetInfo.builder(label, kind).build())
+        .orElse(null);
   }
 
   @Override
@@ -88,7 +93,7 @@ public class QuerySyncProjectData implements BlazeProjectData {
 
   @Override
   public WorkspaceLanguageSettings getWorkspaceLanguageSettings() {
-    return null;
+    return workspaceLanguageSettings;
   }
 
   @Override
