@@ -36,6 +36,7 @@ public abstract class QuerySpec {
   /** The set of package patterns to include. */
   abstract ImmutableList<String> excludes();
 
+  // LINT.IfChanges
   @Memoized
   public ImmutableList<String> getQueryArgs() {
     // This is the main query, note the use of :* that means that the query output has
@@ -50,6 +51,9 @@ public abstract class QuerySpec {
     return ImmutableList.of(
         "--output=streamed_proto", "--relative_locations=true", targets.toString());
   }
+  // LINT.ThenChange(
+  //   //depot/google3/aswb/testdata/projects/test_projects.bzl
+  // )
 
   public static Builder builder() {
     return new AutoValue_QuerySpec.Builder();
@@ -79,10 +83,10 @@ public abstract class QuerySpec {
       return this;
     }
 
-
     @CanIgnoreReturnValue
-    public Builder excludePaths(Collection<Path> excludes) {
-      excludes.stream().map(p -> String.format("//%s/...", p)).forEach(excludesBuilder()::add);
+    public Builder excludePath(Path exclude) {
+      // Convert root directories into blaze target patterns:
+      excludesBuilder().add(String.format("//%s/...", exclude));
       return this;
     }
 
