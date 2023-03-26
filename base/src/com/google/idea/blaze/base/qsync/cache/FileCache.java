@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,37 +29,37 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.idea.blaze.base.command.buildresult.BlazeArtifact;
-import com.google.idea.blaze.base.command.buildresult.BlazeArtifact.LocalFileArtifact;
 import com.google.idea.blaze.base.command.buildresult.OutputArtifact;
 import com.google.idea.blaze.base.io.FileOperationProvider;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.io.FileUtil;
+import com.intellij.openapi.util.io.FileUtilRt;
 import com.intellij.util.PathUtil;
 import com.intellij.util.concurrency.AppExecutorUtil;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Predicate;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import javax.annotation.Nullable;
 
 /** Local cache of the jars referenced by the project. */
-public class JarCache {
+public class FileCache {
 
   private static final ListeningExecutorService EXECUTOR =
       MoreExecutors.listeningDecorator(
           AppExecutorUtil.createBoundedApplicationPoolExecutor("JarCacheExecutor", 128));
-  private static final Logger logger = Logger.getInstance(JarCache.class);
+  private static final Logger logger = Logger.getInstance(FileCache.class);
+  private static final ImmutableSet<String> ZIP_FILE_EXTENSION =
+      ImmutableSet.of("aar", "jar", "srcjar");
 
   // TODO(xinruiy): check if need to provide multi-threading support.
   // Map from local cache key to the local cached file. The local cache key is generated from the
@@ -68,28 +67,34 @@ public class JarCache {
   // copy of an artifact.
   private ImmutableMap<String, Path> cacheState = ImmutableMap.of();
 
-  private final Path jarDir;
-  private final Path aarDir;
-  private final Path gensrcDir;
+  private final Path cacheDir;
+  private final ImmutableSet<String> toCacheFileExtensions;
+  private final boolean extractAfterFetch;
+  private final ArtifactFetcher artifactFetcher;
 
-  public JarCache(Path jarDir, Path aarDir, Path gensrcDir) {
-    this.jarDir = jarDir;
-    this.aarDir = aarDir;
-    this.gensrcDir = gensrcDir;
+  public FileCache(
+      Path cacheDir,
+      ImmutableSet<String> toCacheFileExtension,
+      boolean extractAfterFetch,
+      ArtifactFetcher artifactFetcher) {
+    this.cacheDir = cacheDir;
+    this.extractAfterFetch = extractAfterFetch;
+    this.toCacheFileExtensions = toCacheFileExtension;
+    this.artifactFetcher = artifactFetcher;
   }
 
   /** Updates in memory state, and returns the currently cached files. */
   @CanIgnoreReturnValue
   private ImmutableMap<String, Path> readFileState() {
     FileOperationProvider ops = FileOperationProvider.getInstance();
-    try (Stream<Path> stream = getArtifactStream()) {
+    try (Stream<Path> stream = Files.list(cacheDir)) {
       ImmutableMap<String, Path> cacheState =
           stream
               .filter(
                   file ->
                       ops.isFile(file.toFile())
-                          && (file.getFileName().endsWith(".jar")
-                              || file.getFileName().endsWith(".aar")))
+                          && toCacheFileExtensions.contains(
+                              FileUtilRt.getExtension(file.getFileName().toString())))
               .collect(toImmutableMap(path -> path.getFileName().toString(), f -> f));
       this.cacheState = cacheState;
     } catch (IOException e) {
@@ -98,17 +103,8 @@ public class JarCache {
     return cacheState;
   }
 
-  private Stream<Path> getArtifactStream() throws IOException {
-    try (Stream<Path> jarStream = Files.list(jarDir);
-        Stream<Path> aarStream = Files.list(aarDir)) {
-      return Stream.concat(jarStream, aarStream);
-    }
-  }
-
   public void initialize() {
-    ensureDirectoryExists(jarDir);
-    ensureDirectoryExists(aarDir);
-    ensureDirectoryExists(gensrcDir);
+    ensureDirectoryExists(cacheDir);
     readFileState();
   }
 
@@ -123,77 +119,54 @@ public class JarCache {
     }
   }
 
-  public ImmutableSet<Path> cache(
-      Collection<OutputArtifact> jars,
-      Collection<OutputArtifact> aars,
-      Collection<OutputArtifact> generatedSources)
-      throws IOException {
+  public ImmutableSet<Path> cache(ImmutableList<OutputArtifact> artifacts) throws IOException {
     try {
-      // update cache files, and remove files if required
-      ImmutableList<ListenableFuture<Path>> futures =
-          FluentIterable.concat(
-                  copyLocally(jars, jarDir),
-                  copyLocally(aars, aarDir, x -> true),
-                  copyLocally(
-                      generatedSources, gensrcDir, source -> source.getKey().endsWith(".srcjar")))
-              .toList();
-      return ImmutableSet.copyOf(Uninterruptibles.getUninterruptibly(Futures.allAsList(futures)));
+      ListenableFuture<List<Path>> copyArtifactFuture =
+          artifactFetcher.copy(getLocalPathMap(artifacts, cacheDir));
+      List<Path> files = Uninterruptibles.getUninterruptibly(copyArtifactFuture);
+      if (extractAfterFetch) {
+        files = extract(files);
+      }
+      return ImmutableSet.copyOf(files);
     } catch (ExecutionException e) {
       if (e.getCause() instanceof IOException) {
         throw (IOException) e.getCause();
       }
-      throw new JarCacheOperationException(
+      throw new FileCacheOperationException(
           "Failed to copy jars to cache with unexpected exceptions.", e);
     } finally {
       readFileState();
     }
   }
 
-  private ImmutableList<ListenableFuture<Path>> copyLocally(
-      Collection<OutputArtifact> toUpdateArtifacts, Path cacheDir) {
-    return copyLocally(toUpdateArtifacts, cacheDir, x -> false);
+  private ImmutableMap<OutputArtifact, Path> getLocalPathMap(
+      ImmutableList<OutputArtifact> outputArtifacts, Path dir) {
+    return outputArtifacts.stream()
+        .collect(
+            toImmutableMap(
+                Function.identity(),
+                outputArtifact -> dir.resolve(cacheKeyForArtifact(outputArtifact.getKey()))));
   }
 
-  private ImmutableList<ListenableFuture<Path>> copyLocally(
-      Collection<OutputArtifact> toUpdateArtifacts,
-      Path cacheDir,
-      Predicate<OutputArtifact> shouldExtract) {
-    ImmutableList.Builder<ListenableFuture<Path>> tasks = ImmutableList.builder();
-    for (OutputArtifact toUpdateArtifact : toUpdateArtifacts) {
-      tasks.add(
-          EXECUTOR.submit(
-              () -> {
-                Path destination = cacheDir.resolve(cacheKeyForArtifact(toUpdateArtifact.getKey()));
-                if (shouldExtract.test(toUpdateArtifact)) {
-                  extract(toUpdateArtifact, destination);
-                } else {
-                  copyLocally(toUpdateArtifact, destination);
-                }
-                return destination;
-              }));
+  private ImmutableList<Path> extract(Collection<Path> sourcePaths) throws IOException {
+    ImmutableList.Builder<Path> result = ImmutableList.builder();
+    for (Path sourcePath : sourcePaths) {
+      if (ZIP_FILE_EXTENSION.contains(
+          FileUtilRt.getExtension(sourcePath.getFileName().toString()))) {
+        Path tmpPath = sourcePath.resolveSibling(sourcePath.getFileName() + ".tmp");
+        // Since we will keep using same file name for extracted directory, we need to rename source
+        // file
+        Files.move(sourcePath, tmpPath);
+        result.add(extract(tmpPath, sourcePath));
+        Files.delete(tmpPath);
+      }
     }
-    return tasks.build();
+    return result.build();
   }
 
-  private void copyLocally(BlazeArtifact output, Path destination) throws IOException {
-    if (output instanceof LocalFileArtifact) {
-      File source = ((LocalFileArtifact) output).getFile();
-      Files.copy(
-          Paths.get(source.getPath()),
-          destination,
-          StandardCopyOption.REPLACE_EXISTING,
-          StandardCopyOption.COPY_ATTRIBUTES);
-      return;
-    }
-    try (InputStream stream = output.getInputStream()) {
-      // TODO(b/268420971): Files.copy does not work with grpc, we need to support it later.
-      Files.copy(stream, destination, StandardCopyOption.REPLACE_EXISTING);
-    }
-  }
-
-  private void extract(BlazeArtifact output, Path destination) throws IOException {
+  private Path extract(Path source, Path destination) throws IOException {
     Files.createDirectories(destination);
-    try (InputStream inputStream = output.getInputStream();
+    try (InputStream inputStream = Files.newInputStream(source);
         ZipInputStream zis = new ZipInputStream(inputStream)) {
       ZipEntry entry;
       while ((entry = zis.getNextEntry()) != null) {
@@ -207,13 +180,14 @@ public class JarCache {
         }
       }
     }
+    return destination;
   }
 
-  public void cleanupCacheDir() throws IOException {
+  public void clear() throws IOException {
     FileOperationProvider ops = FileOperationProvider.getInstance();
-    if (ops.exists(jarDir.toFile())) {
+    if (ops.exists(cacheDir.toFile())) {
       try {
-        ops.deleteDirectoryContents(jarDir.toFile(), true);
+        ops.deleteDirectoryContents(cacheDir.toFile(), true);
       } finally {
         readFileState();
       }
@@ -244,15 +218,16 @@ public class JarCache {
       if (e.getCause() instanceof IOException) {
         throw (IOException) e.getCause();
       }
-      throw new JarCacheOperationException("Failed to remove cache with unexpected exceptions.", e);
+      throw new FileCacheOperationException(
+          "Failed to remove cache with unexpected exceptions.", e);
     } finally {
       readFileState();
     }
   }
 
   @Nullable
-  public Optional<Path> get(OutputArtifact jar) {
-    return get(artifactKey(jar));
+  public Optional<Path> get(OutputArtifact artifact) {
+    return get(artifactKey(artifact));
   }
 
   @Nullable
@@ -263,7 +238,7 @@ public class JarCache {
 
   private static String cacheKeyForArtifact(String artifactKey) {
     return String.format(
-        "%s.%s", cacheKeyInternal(artifactKey), FileUtil.getExtension(artifactKey, "jar"));
+        "%s.%s", cacheKeyInternal(artifactKey), FileUtilRt.getExtension(artifactKey));
   }
 
   private static String cacheKeyInternal(String artifactKey) {
@@ -277,10 +252,10 @@ public class JarCache {
     return artifact.getKey();
   }
 
-  // TODO(xinruiy): We create JarCacheOperationException for handling unexpect exception during
+  // TODO(xinruiy): We create FileCacheOperationException for handling unexpect exception during
   // copy/ remove files. We need to revisit it when we improve all exception handling in the future.
-  static class JarCacheOperationException extends RuntimeException {
-    public JarCacheOperationException(String message, Throwable e) {
+  static class FileCacheOperationException extends RuntimeException {
+    public FileCacheOperationException(String message, Throwable e) {
       super(message, e);
     }
   }

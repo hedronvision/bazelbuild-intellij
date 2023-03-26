@@ -16,6 +16,7 @@
 package com.google.idea.blaze.base.model;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.intellij.model.ProjectData;
 import com.google.idea.blaze.base.command.info.BlazeInfo;
 import com.google.idea.blaze.base.dependencies.TargetInfo;
@@ -29,6 +30,7 @@ import com.google.idea.blaze.base.sync.projectview.WorkspaceLanguageSettings;
 import com.google.idea.blaze.base.sync.workspace.ArtifactLocationDecoder;
 import com.google.idea.blaze.base.sync.workspace.ArtifactLocationDecoderImpl;
 import com.google.idea.blaze.base.sync.workspace.WorkspacePathResolver;
+import com.google.idea.blaze.common.BuildTarget;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -113,9 +115,7 @@ public final class AspectSyncProjectData implements BlazeProjectData {
         .build();
   }
 
-  @Nullable
-  @Override
-  public TargetInfo getTargetInfo(Label label) {
+  private TargetInfo getTargetInfo(Label label) {
     TargetMap map = getTargetMap();
     // look for a plain target first
     TargetIdeInfo target = map.get(TargetKey.forPlainTarget(label));
@@ -130,7 +130,26 @@ public final class AspectSyncProjectData implements BlazeProjectData {
         .orElse(null);
   }
 
+  @Nullable
   @Override
+  public BuildTarget getBuildTarget(Label label) {
+    TargetInfo targetInfo = getTargetInfo(label);
+    if (targetInfo == null) {
+      return null;
+    }
+    return BuildTarget.builder()
+        .setLabel(com.google.idea.blaze.common.Label.of(targetInfo.label.toString()))
+        .setKind(targetInfo.kindString)
+        .build();
+  }
+
+  @Override
+  public ImmutableList<TargetInfo> targets() {
+    return getTargetMap().targets().stream()
+        .map(TargetIdeInfo::toTargetInfo)
+        .collect(ImmutableList.toImmutableList());
+  }
+
   public ProjectTargetData getTargetData() {
     return targetData;
   }

@@ -48,11 +48,14 @@ public class FullProjectUpdate implements RefreshOperation {
   private final PostQuerySyncData.Builder result;
 
   public FullProjectUpdate(
-      Context context, Path workspaceRoot, ProjectDefinition spec, PackageReader packageReader) {
+      Context context,
+      Path workspaceRoot,
+      ProjectDefinition definition,
+      PackageReader packageReader) {
     this.context = context;
     this.workspaceRoot = workspaceRoot;
-    this.result = PostQuerySyncData.builder().setSyncSpec(spec);
-    this.projectDefinition = spec;
+    this.result = PostQuerySyncData.builder().setProjectDefinition(definition);
+    this.projectDefinition = definition;
     this.queryParser = new BlazeQueryParser(context);
     this.graphToProjectConverter =
         new GraphToProjectConverter(packageReader, context, projectDefinition);
@@ -61,7 +64,6 @@ public class FullProjectUpdate implements RefreshOperation {
   @Override
   public Optional<QuerySpec> getQuerySpec() throws IOException {
     QuerySpec querySpec = projectDefinition.deriveQuerySpec(context, workspaceRoot);
-    result.setQuerySpec(querySpec);
     return Optional.of(querySpec);
   }
 

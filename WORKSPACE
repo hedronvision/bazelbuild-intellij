@@ -48,9 +48,9 @@ http_archive(
 )
 
 # The plugin api for intellij_ce_2023_1. This is required to build IJwB and run integration tests.
-IC_231_SHA = "1b3653f3eca1d9def2cf77aeda4ed8352a95ecb82d7cf4aad88c79cb5c742d18"
+IC_231_SHA = "8564686a3da705938e9c9fc9b5d5833d77eb953b93012c22bab6d318d172f181"
 
-IC_231_URL = "https://www.jetbrains.com/intellij-repository/snapshots/com/jetbrains/intellij/idea/ideaIC/231.8109.2-EAP-SNAPSHOT/ideaIC-231.8109.2-EAP-SNAPSHOT.zip"
+IC_231_URL = "https://www.jetbrains.com/intellij-repository/snapshots/com/jetbrains/intellij/idea/ideaIC/231.8109.144-EAP-SNAPSHOT/ideaIC-231.8109.144-EAP-SNAPSHOT.zip"
 
 http_archive(
     name = "intellij_ce_2023_1",
@@ -101,9 +101,9 @@ http_archive(
 )
 
 # The plugin api for intellij_ue_2022_3. This is required to run UE-specific integration tests.
-IU_231_SHA = "56a7823d20fdfeac7615208194a57fbed11cda77b1c77cba25278c0882a780b6"
+IU_231_SHA = "818b8304b6d3b3c2f9e67eff37f8000061f9fc9d16db1e1f175df22441416172"
 
-IU_231_URL = "https://www.jetbrains.com/intellij-repository/snapshots/com/jetbrains/intellij/idea/ideaIU/231.8109.2-EAP-SNAPSHOT/ideaIU-231.8109.2-EAP-SNAPSHOT.zip"
+IU_231_URL = "https://www.jetbrains.com/intellij-repository/snapshots/com/jetbrains/intellij/idea/ideaIU/231.8109.144-EAP-SNAPSHOT/ideaIU-231.8109.144-EAP-SNAPSHOT.zip"
 
 http_archive(
     name = "intellij_ue_2023_1",
@@ -152,9 +152,9 @@ http_archive(
     url = "https://www.jetbrains.com/intellij-repository/releases/com/jetbrains/intellij/clion/clion/2022.3/clion-2022.3.zip",
 )
 
-CLION_231_SHA = "46bd06d26f4a63c6046e3fc10c667351e8823fbe3c53cb609041c9993166370b"
+CLION_231_SHA = "c1c2efe875275bf106cb85e9ac8bcf364d0f9c8b86ecbfb9047ccc24d56e4a34"
 
-CLION_231_URL = "https://www.jetbrains.com/intellij-repository/snapshots/com/jetbrains/intellij/clion/clion/231.8109.4-EAP-SNAPSHOT/clion-231.8109.4-EAP-SNAPSHOT.zip"
+CLION_231_URL = "https://www.jetbrains.com/intellij-repository/snapshots/com/jetbrains/intellij/clion/clion/231.8109.141-EAP-SNAPSHOT/clion-231.8109.141-EAP-SNAPSHOT.zip"
 
 http_archive(
     name = "clion_2023_1",
@@ -223,9 +223,9 @@ http_archive(
     url = "https://plugins.jetbrains.com/maven/com/jetbrains/plugins/PythonCore/223.7571.182/PythonCore-223.7571.182.zip",
 )
 
-PYTHON_PLUGIN_231_URL = "https://plugins.jetbrains.com/maven/com/jetbrains/plugins/PythonCore/231.8109.2/PythonCore-231.8109.2.zip"
+PYTHON_PLUGIN_231_URL = "https://plugins.jetbrains.com/maven/com/jetbrains/plugins/PythonCore/231.8109.144/PythonCore-231.8109.144.zip"
 
-PYTHON_PLUGIN_231_SHA = "9363242e3115d7c21d20b4eab1ee4cc79657243d221f8e3c4528b2a35a5a5f50"
+PYTHON_PLUGIN_231_SHA = "90b75d0e4919f424fabc81e83cc83da9305ed73b60d73a4653353685ec89f47f"
 
 http_archive(
     name = "python_2023_1",
@@ -288,9 +288,9 @@ http_archive(
     url = "https://plugins.jetbrains.com/maven/com/jetbrains/plugins/org.jetbrains.plugins.go/223.7571.182/org.jetbrains.plugins.go-223.7571.182.zip",
 )
 
-GO_PLUGIN_231_SHA = "a157d1e38554273652c6ccd093933e4777856e808d538ee26e1d36f6310e43b3"
+GO_PLUGIN_231_SHA = "9787391fcc3a3c3021380cb00e46b3e54d5a82f892f3cb358c2c8ef9dfe89407"
 
-GO_PLUGIN_231_URL = "https://plugins.jetbrains.com/maven/com/jetbrains/plugins/org.jetbrains.plugins.go/231.8109.2/org.jetbrains.plugins.go-231.8109.2.zip"
+GO_PLUGIN_231_URL = "https://plugins.jetbrains.com/maven/com/jetbrains/plugins/org.jetbrains.plugins.go/231.8109.144/org.jetbrains.plugins.go-231.8109.144.zip"
 
 http_archive(
     name = "go_2023_1",
@@ -345,9 +345,9 @@ http_archive(
     url = "https://plugins.jetbrains.com/maven/com/jetbrains/plugins/org.intellij.scala/2022.3.13/org.intellij.scala-2022.3.13.zip",
 )
 
-SCALA_PLUGIN_231_URL = "https://plugins.jetbrains.com/maven/com/jetbrains/plugins/org.intellij.scala/2023.1.11/org.intellij.scala-2023.1.11.zip"
+SCALA_PLUGIN_231_URL = "https://plugins.jetbrains.com/maven/com/jetbrains/plugins/org.intellij.scala/2023.1.13/org.intellij.scala-2023.1.13.zip"
 
-SCALA_PLUGIN_231_SHA = "d93f3273fdc6f3294a76cc33480be51a020ac4deb87ebb13f48bd22db69a8fca"
+SCALA_PLUGIN_231_SHA = "f923e888ae4acd9ed33a0b9fc3e4b093eb7041f1a848db605718da99c3372806"
 
 http_archive(
     name = "scala_2023_1",
@@ -377,8 +377,8 @@ http_archive(
 http_archive(
     name = "android_studio_2022_2",
     build_file = "@//intellij_platform_sdk:BUILD.android_studio222",
-    sha256 = "97326fe2de4ce4376327b193d094c597295597de79e2cbdb9a36831f152e394a",
-    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.2.1.14/android-studio-2022.2.1.14-linux.tar.gz",
+    sha256 = "5a6aaee9c0a41547977e9b830ba7d6ff87a95bc94b70d62e340ebb2643f4e587",
+    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.2.1.16/android-studio-2022.2.1.16-linux.tar.gz",
 )
 
 # The plugin api for android_studio_dev android_studio. This is required to build ASwB and run integration tests
@@ -393,8 +393,8 @@ http_archive(
 http_archive(
     name = "android_studio_2022_3",
     build_file = "@//intellij_platform_sdk:BUILD.android_studio223",
-    sha256 = "5584d26479e5c231ceb339b87c07f7c7744d044a3f087f8125bf4ff94f6fb888",
-    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.3.1.7/android-studio-2022.3.1.7-linux.tar.gz",
+    sha256 = "f45f776e0c5af88e89383b2b5d4d234e270f7fd88357d99905865f6fb1e462bf",
+    url = "https://dl.google.com/dl/android/studio/ide-zips/2022.3.1.9/android-studio-2022.3.1.9-linux.tar.gz",
 )
 
 # LICENSE: Common Public License 1.0

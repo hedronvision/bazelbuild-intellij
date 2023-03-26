@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.idea.blaze.common.BuildTarget;
 import com.google.idea.blaze.common.Label;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -64,7 +65,7 @@ public abstract class BuildGraphData {
 
   abstract ImmutableSet<Label> androidTargets();
 
-  abstract ImmutableMap<Label, String> targetToKind();
+  abstract ImmutableMap<Label, BuildTarget> targetMap();
 
   @Override
   public final String toString() {
@@ -99,7 +100,7 @@ public abstract class BuildGraphData {
 
     public abstract ImmutableMap.Builder<Label, ImmutableSet<Label>> ruleDepsBuilder();
 
-    public abstract ImmutableMap.Builder<Label, String> targetToKindBuilder();
+    public abstract ImmutableMap.Builder<Label, BuildTarget> targetMapBuilder();
 
     @CanIgnoreReturnValue
     public Builder ruleDeps(Map<Label, Set<Label>> value) {

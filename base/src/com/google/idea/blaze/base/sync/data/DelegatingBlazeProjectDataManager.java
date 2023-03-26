@@ -50,6 +50,5 @@ public class DelegatingBlazeProjectDataManager implements BlazeProjectDataManage
   @Override
   public void saveProject(BlazeImportSettings importSettings, BlazeProjectData projectData) {
     delegate.saveProject(importSettings, projectData);
-    }
-
+  }
 }

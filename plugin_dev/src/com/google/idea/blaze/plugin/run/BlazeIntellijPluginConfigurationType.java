@@ -18,14 +18,14 @@ package com.google.idea.blaze.plugin.run;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Splitter;
-import com.google.idea.blaze.base.ideinfo.TargetIdeInfo;
-import com.google.idea.blaze.base.ideinfo.TargetKey;
+import com.google.idea.blaze.base.dependencies.TargetInfo;
 import com.google.idea.blaze.base.model.BlazeProjectData;
 import com.google.idea.blaze.base.model.primitives.Label;
 import com.google.idea.blaze.base.model.primitives.WorkspaceType;
 import com.google.idea.blaze.base.run.BlazeRunConfigurationFactory;
 import com.google.idea.blaze.base.settings.Blaze;
 import com.google.idea.blaze.base.sync.data.BlazeProjectDataManager;
+import com.google.idea.blaze.common.BuildTarget;
 import com.google.idea.blaze.plugin.IntellijPluginRule;
 import com.google.idea.common.experiments.BoolExperiment;
 import com.intellij.diagnostic.VMOptions;
@@ -68,8 +68,11 @@ public class BlazeIntellijPluginConfigurationType implements ConfigurationType {
           .isWorkspaceType(WorkspaceType.INTELLIJ_PLUGIN)) {
         return false;
       }
-      TargetIdeInfo target = blazeProjectData.getTargetMap().get(TargetKey.forPlainTarget(label));
-      return target != null && IntellijPluginRule.isPluginTarget(target);
+      BuildTarget target = blazeProjectData.getBuildTarget(label);
+      if (target == null) {
+        return false;
+      }
+      return IntellijPluginRule.isPluginTarget(TargetInfo.builder(label, target.kind()).build());
     }
 
     @Override
@@ -132,10 +135,9 @@ public class BlazeIntellijPluginConfigurationType implements ConfigurationType {
       if (projectData == null) {
         return null;
       }
-      return projectData.getTargetMap().targets().stream()
+      return projectData.targets().stream()
           .filter(IntellijPluginRule::isPluginTarget)
-          .map(TargetIdeInfo::getKey)
-          .map(TargetKey::getLabel)
+          .map(info -> info.label)
           .findFirst()
           .orElse(null);
     }

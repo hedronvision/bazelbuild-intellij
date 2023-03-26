@@ -15,28 +15,16 @@
  */
 package com.google.idea.blaze.base.qsync;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.idea.blaze.base.model.BlazeProjectData;
-import com.google.idea.blaze.base.projectview.ProjectViewManager;
 import com.google.idea.blaze.base.settings.BlazeImportSettings;
 import com.google.idea.blaze.base.sync.data.BlazeProjectDataManager;
-import com.google.idea.blaze.base.sync.projectview.LanguageSupport;
-import com.google.idea.blaze.base.sync.projectview.WorkspaceLanguageSettings;
 import com.intellij.openapi.project.Project;
 import javax.annotation.Nullable;
 
-/**
- * Implementation of {@link BlazeProjectDataManager} specific to querysync.
- *
- * <p>TODO: it's not yet clear how useful this class is for querysync. This is currently a pragmatic
- * approach to get more IDE functionality working with querysync. The ideal long term design is not
- * yet determined.
- */
+/** Implementation of {@link BlazeProjectDataManager} specific to querysync. */
 public class QuerySyncProjectDataManager implements BlazeProjectDataManager {
 
   private final Project project;
-  private volatile QuerySyncProjectData projectData;
 
   public QuerySyncProjectDataManager(Project project) {
     this.project = project;
@@ -44,23 +32,28 @@ public class QuerySyncProjectDataManager implements BlazeProjectDataManager {
 
   @Nullable
   @Override
-  public BlazeProjectData getBlazeProjectData() {
-    return projectData;
+  public QuerySyncProjectData getBlazeProjectData() {
+    return QuerySyncManager.getInstance(project)
+        .getLoadedProject()
+        .map(QuerySyncProject::getProjectData)
+        .orElse(null);
   }
 
   @Nullable
   @Override
   public BlazeProjectData loadProject(BlazeImportSettings importSettings) {
-    WorkspaceLanguageSettings workspaceLanguageSettings =
-        LanguageSupport.createWorkspaceLanguageSettings(
-            checkNotNull(ProjectViewManager.getInstance(project).getProjectViewSet()));
-    // TODO(b/260231317): implement loading if necessary
-    projectData = new QuerySyncProjectData(project, importSettings, workspaceLanguageSettings);
-    return projectData;
+    // this is only call from legacy sync codepaths (so should never be called, since this class
+    // is not used in that case).
+    // TODO(mathewi) Tidy up the interface to remove this unnecessary stuff.
+    throw new UnsupportedOperationException();
   }
 
   @Override
   public void saveProject(BlazeImportSettings importSettings, BlazeProjectData projectData) {
-    // TODO(b/260231317): implement if necessary
+    // this is only call from legacy sync codepaths (so should never be called, since this class
+    // is not used in that case).
+    // TODO(mathewi) Tidy up the interface to remove this unnecessary stuff.
+    throw new UnsupportedOperationException();
   }
+
 }

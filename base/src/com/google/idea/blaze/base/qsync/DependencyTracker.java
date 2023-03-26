@@ -18,20 +18,13 @@ package com.google.idea.blaze.base.qsync;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.idea.blaze.base.command.buildresult.BuildResultHelper.GetArtifactsException;
-import com.google.idea.blaze.base.model.primitives.WorkspacePath;
-import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
-import com.google.idea.blaze.base.projectview.ProjectViewManager;
-import com.google.idea.blaze.base.projectview.ProjectViewSet;
 import com.google.idea.blaze.base.qsync.cache.ArtifactTracker.UpdateResult;
 import com.google.idea.blaze.base.scope.BlazeContext;
-import com.google.idea.blaze.base.settings.BlazeImportSettings;
-import com.google.idea.blaze.base.settings.BlazeImportSettingsManager;
-import com.google.idea.blaze.base.sync.projectview.ImportRoots;
 import com.google.idea.blaze.common.Label;
 import com.google.idea.blaze.common.PrintOutput;
 import com.google.idea.blaze.qsync.BlazeProject;
 import com.google.idea.blaze.qsync.project.BlazeProjectSnapshot;
-import com.intellij.openapi.project.Project;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import java.io.File;
@@ -50,19 +43,19 @@ import javax.annotation.Nullable;
  */
 public class DependencyTracker {
 
-  private final Project project;
+  private static final Logger logger = Logger.getInstance(DependencyTracker.class);
 
+  private final Path workspaceRoot;
   private final BlazeProject blazeProject;
-  private final Set<Label> syncedTargets = new HashSet<>();
   private final DependencyBuilder builder;
   private final DependencyCache cache;
 
   public DependencyTracker(
-      Project project,
+      Path workspaceRoot,
       BlazeProject blazeProject,
       DependencyBuilder builder,
       DependencyCache cache) {
-    this.project = project;
+    this.workspaceRoot = workspaceRoot;
     this.blazeProject = blazeProject;
     this.builder = builder;
     this.cache = cache;
@@ -70,10 +63,8 @@ public class DependencyTracker {
 
   /** Recursively get all the transitive deps outside the project */
   @Nullable
-  public Set<Label> getPendingTargets(Project project, VirtualFile vf) {
-    BlazeImportSettings settings =
-        BlazeImportSettingsManager.getInstance(project).getImportSettings();
-    Path rel = Paths.get(settings.getWorkspaceRoot()).relativize(Paths.get(vf.getPath()));
+  public Set<Label> getPendingTargets(VirtualFile vf) {
+    Path rel = workspaceRoot.relativize(Paths.get(vf.getPath()));
 
     Optional<BlazeProjectSnapshot> currentSnapshot = blazeProject.getCurrent();
     if (currentSnapshot.isEmpty()) {
@@ -83,20 +74,12 @@ public class DependencyTracker {
     if (targets == null) {
       return null;
     }
-    return Sets.difference(targets, syncedTargets).immutableCopy();
+    Set<Label> cachedTargets = cache.getCachedTargets();
+    return Sets.difference(targets, cachedTargets).immutableCopy();
   }
 
-  public void buildDependenciesForFile(BlazeContext context, List<WorkspacePath> paths)
+  public void buildDependenciesForFile(BlazeContext context, List<Path> paths)
       throws IOException, GetArtifactsException {
-
-    BlazeImportSettings settings =
-        BlazeImportSettingsManager.getInstance(project).getImportSettings();
-
-    WorkspaceRoot workspaceRoot = WorkspaceRoot.fromImportSettings(settings);
-
-    ProjectViewSet projectViewSet = ProjectViewManager.getInstance(project).getProjectViewSet();
-    ImportRoots ir =
-        ImportRoots.builder(workspaceRoot, settings.getBuildSystem()).add(projectViewSet).build();
 
     BlazeProjectSnapshot snapshot =
         blazeProject
@@ -105,27 +88,23 @@ public class DependencyTracker {
 
     Set<Label> targets = new HashSet<>();
     Set<Label> buildTargets = new HashSet<>();
-    for (WorkspacePath path : paths) {
-      buildTargets.add(snapshot.getTargetOwner(path.asPath()));
-      ImmutableSet<Label> t = snapshot.getFileDependencies(path.asPath());
+    for (Path path : paths) {
+      Label targetOwner = snapshot.getTargetOwner(path);
+      if (targetOwner != null) {
+        buildTargets.add(targetOwner);
+      } else {
+        logger.warn(String.format("No target owner found for file %s", path));
+      }
+      ImmutableSet<Label> t = snapshot.getFileDependencies(path);
       if (t != null) {
         targets.addAll(t);
       }
     }
 
-    int size = targets.size();
-    targets.removeIf(syncedTargets::contains);
-    context.output(PrintOutput.log("Removing already synced targets %d", size - targets.size()));
+    OutputInfo outputInfo = builder.build(context, buildTargets);
 
-    if (targets.isEmpty()) {
-      return;
-    }
-
-    OutputInfo outputInfo = builder.build(context, buildTargets, ir, workspaceRoot);
-
-    syncedTargets.addAll(targets);
     long now = System.nanoTime();
-    UpdateResult updateResult = cache.update(outputInfo);
+    UpdateResult updateResult = cache.update(targets, outputInfo);
     long elapsedMs = (System.nanoTime() - now) / 1000000L;
     context.output(
         PrintOutput.log(

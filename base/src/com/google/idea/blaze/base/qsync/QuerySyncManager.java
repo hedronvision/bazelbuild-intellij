@@ -16,17 +16,10 @@
 package com.google.idea.blaze.base.qsync;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.idea.blaze.base.async.executor.ProgressiveTaskWithProgressIndicator;
-import com.google.idea.blaze.base.command.buildresult.BuildResultHelper.GetArtifactsException;
-import com.google.idea.blaze.base.model.BlazeProjectData;
-import com.google.idea.blaze.base.model.primitives.WorkspacePath;
-import com.google.idea.blaze.base.projectview.ProjectViewManager;
-import com.google.idea.blaze.base.projectview.ProjectViewSet;
 import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.scope.BlazeScope;
 import com.google.idea.blaze.base.scope.Scope;
@@ -34,18 +27,12 @@ import com.google.idea.blaze.base.scope.ScopedOperation;
 import com.google.idea.blaze.base.scope.scopes.ProblemsViewScope;
 import com.google.idea.blaze.base.scope.scopes.ProgressIndicatorScope;
 import com.google.idea.blaze.base.scope.scopes.ToolWindowScope;
-import com.google.idea.blaze.base.settings.BlazeImportSettings;
-import com.google.idea.blaze.base.settings.BlazeImportSettingsManager;
 import com.google.idea.blaze.base.settings.BlazeUserSettings.FocusBehavior;
-import com.google.idea.blaze.base.sync.SyncListener;
 import com.google.idea.blaze.base.sync.SyncMode;
 import com.google.idea.blaze.base.sync.SyncResult;
-import com.google.idea.blaze.base.sync.data.BlazeProjectDataManager;
 import com.google.idea.blaze.base.sync.status.BlazeSyncStatus;
 import com.google.idea.blaze.base.toolwindow.Task;
-import com.google.idea.blaze.common.Label;
 import com.google.idea.blaze.common.PrintOutput;
-import com.google.idea.blaze.qsync.BlazeProject;
 import com.google.idea.blaze.qsync.project.BlazeProjectSnapshot;
 import com.google.idea.blaze.qsync.project.PostQuerySyncData;
 import com.google.idea.blaze.qsync.project.ProjectDefinition;
@@ -56,10 +43,8 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiFile;
 import com.intellij.serviceContainer.NonInjectable;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
-import java.util.Set;
+import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * The project component for a query based sync.
@@ -81,16 +66,12 @@ import java.util.Set;
  * </ul>
  */
 public class QuerySyncManager {
-
   private final Logger logger = Logger.getInstance(getClass());
 
   private final Project project;
-  private final BlazeProject graph;
-  private final DependencyTracker dependencyTracker;
-  private final ProjectQuerier projectQuerier;
-  private final ProjectUpdater projectUpdater;
-  private final DependencyBuilder builder;
-  private final DependencyCache cache;
+
+  private final ProjectLoader loader;
+  private volatile QuerySyncProject loadedProject;
 
   public static QuerySyncManager getInstance(Project project) {
     return ServiceManager.getService(project, QuerySyncManager.class);
@@ -98,101 +79,66 @@ public class QuerySyncManager {
 
   public QuerySyncManager(Project project) {
     this.project = project;
-    this.graph = new BlazeProject();
-    this.builder = new BazelBinaryDependencyBuilder(project);
-    this.cache = new DependencyCache(project);
-    this.dependencyTracker = new DependencyTracker(project, graph, builder, cache);
-    this.projectQuerier = ProjectQuerierImpl.create(project);
-    this.projectUpdater = new ProjectUpdater(project, graph);
+    this.loader = new ProjectLoader(project);
   }
 
   @VisibleForTesting
   @NonInjectable
-  public QuerySyncManager(
-      Project project,
-      BlazeProject graph,
-      DependencyTracker dependencyTracker,
-      ProjectQuerier projectQuerier,
-      ProjectUpdater projectUpdater,
-      DependencyBuilder builder,
-      DependencyCache cache) {
+  public QuerySyncManager(Project project, ProjectLoader loader) {
     this.project = project;
-    this.graph = graph;
-    this.dependencyTracker = dependencyTracker;
-    this.projectQuerier = projectQuerier;
-    this.projectUpdater = projectUpdater;
-    this.builder = builder;
-    this.cache = cache;
+    this.loader = loader;
+  }
+
+  public void loadProject(BlazeContext context) {
+    try {
+      QuerySyncProject newProject = loader.loadProject(context);
+      if (!context.hasErrors()) {
+        loadedProject = newProject;
+      }
+    } catch (IOException e) {
+      onError("Failed to load project", e, context);
+    }
+  }
+
+  public Optional<QuerySyncProject> getLoadedProject() {
+    return Optional.ofNullable(loadedProject);
+  }
+
+  private void assertProjectLoaded() {
+    if (loadedProject == null) {
+      throw new IllegalStateException("Project not loaded yet");
+    }
   }
 
   /** Log & display a message to the user when a user-initiated action fails. */
-  private void onError(String description, Exception e, BlazeContext context) {
+  void onError(String description, Exception e, BlazeContext context) {
     logger.error(description, e);
     context.output(PrintOutput.error(description + ": " + e.getClass().getSimpleName()));
+    context.setHasError();
     if (e.getMessage() != null) {
       context.output(PrintOutput.error("Cause: " + e.getMessage()));
     }
   }
 
-  public BlazeProject getBlazeProject() {
-    return graph;
-  }
-
-  private ListenableFuture<Boolean> build(List<WorkspacePath> wps) {
-    return run(
-        "Building dependencies",
-        "Building...",
-        context -> {
-          try {
-            build(context, wps);
-          } catch (Exception e) {
-            onError("Failed to build dependencies " + Joiner.on(' ').join(wps), e, context);
-          }
-        });
-  }
-
-  private void sync(BlazeContext context, boolean full) {
-    try {
-      BlazeProjectSnapshot newProject =
-          full || graph.getCurrent().isEmpty()
-              ? projectQuerier.fullQuery(context)
-              : projectQuerier.update(graph.getCurrent().get(), context);
-      graph.setCurrent(context, newProject);
-      // TODO: Revisit SyncListeners once we switch fully to qsync
-      BlazeImportSettings settings =
-          BlazeImportSettingsManager.getInstance(project).getImportSettings();
-      ProjectViewSet projectViewSet = ProjectViewManager.getInstance(project).getProjectViewSet();
-      BlazeProjectData data = BlazeProjectDataManager.getInstance(project).getBlazeProjectData();
-      for (SyncListener syncListener : SyncListener.EP_NAME.getExtensions()) {
-        // A callback shared between the old and query sync implementations.
-        syncListener.onSyncComplete(
-            project,
-            context,
-            settings,
-            projectViewSet,
-            ImmutableSet.of(),
-            data,
-            SyncMode.FULL,
-            SyncResult.SUCCESS);
-      }
-    } catch (IOException e) {
-      onError("Project sync failed", e, context);
-    } finally {
-      for (SyncListener syncListener : SyncListener.EP_NAME.getExtensions()) {
-        // A query sync specific callback.
-        syncListener.afterSync(project, context);
-      }
-    }
+  public DependencyCache getDependencyCache() {
+    assertProjectLoaded();
+    return loadedProject.getDependencyCache();
   }
 
   @CanIgnoreReturnValue
-  public ListenableFuture<Boolean> initialProjectSync() {
-    return run("Initiating project sync", "Importing project", context -> sync(context, true));
+  public ListenableFuture<Boolean> onStartup() {
+    return run("Loading project", "Initializing project structure", this::loadProject);
+  }
+
+  @CanIgnoreReturnValue
+  public ListenableFuture<Boolean> fullSync() {
+    return run("Updating project structure", "Re-importing project", loadedProject::fullSync);
   }
 
   @CanIgnoreReturnValue
   public ListenableFuture<Boolean> deltaSync() {
-    return run("Updating project structure", "Refreshing project", context -> sync(context, false));
+    assertProjectLoaded();
+    return run("Updating project structure", "Refreshing project", loadedProject::deltaSync);
   }
 
   private ListenableFuture<Boolean> run(String title, String subTitle, ScopedOperation operation) {
@@ -239,30 +185,24 @@ public class QuerySyncManager {
                     }));
   }
 
-  public void build(BlazeContext context, List<WorkspacePath> wps)
-      throws IOException, GetArtifactsException {
-
-    dependencyTracker.buildDependenciesForFile(context, wps);
-  }
-
+  @Nullable
   public DependencyTracker getDependencyTracker() {
-    return dependencyTracker;
+    return loadedProject == null ? null : loadedProject.getDependencyTracker();
   }
 
   @CanIgnoreReturnValue
   public ListenableFuture<Boolean> enableAnalysis(PsiFile psiFile) {
-    BlazeImportSettings settings =
-        BlazeImportSettingsManager.getInstance(project).getImportSettings();
-
-    Path path = Paths.get(psiFile.getVirtualFile().getPath());
-    String rel = Paths.get(settings.getWorkspaceRoot()).relativize(path).toString();
-    return build(List.of(WorkspacePath.createIfValid(rel)));
+    assertProjectLoaded();
+    return run(
+        "Building dependencies",
+        "Building...",
+        context -> loadedProject.enableAnalysis(context, psiFile));
   }
 
   public boolean isReadyForAnalysis(PsiFile psiFile) {
-    Set<Label> pendingTargets =
-        dependencyTracker.getPendingTargets(project, psiFile.getVirtualFile());
-    int unsynced = pendingTargets == null ? 0 : pendingTargets.size();
-    return unsynced == 0;
+    if (loadedProject == null) {
+      return false;
+    }
+    return loadedProject.isReadyForAnalysis(psiFile);
   }
 }

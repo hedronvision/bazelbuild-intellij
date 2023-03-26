@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.idea.blaze.qsync.query.Query;
-import com.google.idea.blaze.qsync.query.QuerySpec;
 import com.google.idea.blaze.qsync.query.QuerySummary;
 import com.google.idea.blaze.qsync.vcs.VcsState;
 import java.util.Optional;
@@ -38,19 +37,16 @@ public abstract class PostQuerySyncData {
   @VisibleForTesting
   public static final PostQuerySyncData EMPTY =
       builder()
-          .setSyncSpec(ProjectDefinition.create(ImmutableSet.of(), ImmutableSet.of()))
+          .setProjectDefinition(ProjectDefinition.create(ImmutableSet.of(), ImmutableSet.of()))
           .setVcsState(Optional.empty())
-          .setQuerySpec(QuerySpec.EMPTY)
           .setQuerySummary(QuerySummary.EMPTY)
           .build();
 
-  /** The sync spec that this project is based on. */
-  public abstract ProjectDefinition syncSpec();
+  /** The definition that this project is based on. */
+  public abstract ProjectDefinition projectDefinition();
 
   /** The VCS state at the time that the query was run. */
   public abstract Optional<VcsState> vcsState();
-
-  public abstract QuerySpec querySpec();
 
   /** The summarised output from the query. */
   public abstract QuerySummary querySummary();
@@ -66,11 +62,9 @@ public abstract class PostQuerySyncData {
   @AutoValue.Builder
   public abstract static class Builder {
 
-    public abstract Builder setSyncSpec(ProjectDefinition value);
+    public abstract Builder setProjectDefinition(ProjectDefinition value);
 
     public abstract Builder setVcsState(Optional<VcsState> value);
-
-    public abstract Builder setQuerySpec(QuerySpec value);
 
     public abstract Builder setQuerySummary(QuerySummary value);
 

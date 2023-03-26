@@ -16,7 +16,9 @@
 package com.google.idea.blaze.qsync.project;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.idea.blaze.common.BuildTarget;
 import com.google.idea.blaze.common.Label;
 import com.google.idea.blaze.qsync.query.PackageSet;
 import java.nio.file.Path;
@@ -62,6 +64,7 @@ public abstract class BlazeProjectSnapshot {
    *
    * @param path a workspace relative path.
    */
+  @Nullable
   public Label getTargetOwner(Path path) {
     return graph().getTargetOwner(path);
   }
@@ -75,8 +78,9 @@ public abstract class BlazeProjectSnapshot {
     return graph().getFileDependencies(path);
   }
 
-  public String getTargetKind(Label target) {
-    return graph().targetToKind().get(target);
+  /** Returns mapping of targets to {@link BuildTarget} */
+  public ImmutableMap<Label, BuildTarget> getTargetMap() {
+    return graph().targetMap();
   }
 
   /** Builder for {@link BlazeProjectSnapshot}. */

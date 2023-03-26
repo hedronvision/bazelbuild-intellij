@@ -20,6 +20,7 @@ import static com.google.idea.blaze.common.Label.toLabelList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.idea.blaze.common.BuildTarget;
 import com.google.idea.blaze.common.Context;
 import com.google.idea.blaze.common.Label;
 import com.google.idea.blaze.common.PrintOutput;
@@ -28,7 +29,6 @@ import com.google.idea.blaze.qsync.project.BuildGraphData.Location;
 import com.google.idea.blaze.qsync.query.Query;
 import com.google.idea.blaze.qsync.query.QuerySummary;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -98,8 +98,20 @@ public class BlazeQueryParser {
     }
     for (Map.Entry<Label, Query.Rule> ruleEntry : query.getRulesMap().entrySet()) {
       String ruleClass = ruleEntry.getValue().getRuleClass();
-      graphBuilder.targetToKindBuilder().put(ruleEntry.getKey(), ruleClass);
       ruleCount.compute(ruleClass, (k, v) -> (v == null ? 0 : v) + 1);
+
+      BuildTarget.Builder buildTarget =
+          BuildTarget.builder().setLabel(ruleEntry.getKey()).setKind(ruleClass);
+      if (ruleEntry.getValue().containsOtherAttributes("test_app")) {
+        buildTarget.setTestApp(
+            Label.of(ruleEntry.getValue().getOtherAttributesOrThrow("test_app")));
+      }
+      if (ruleEntry.getValue().containsOtherAttributes("instruments")) {
+        buildTarget.setInstruments(
+            Label.of(ruleEntry.getValue().getOtherAttributesOrThrow("instruments")));
+      }
+      graphBuilder.targetMapBuilder().put(ruleEntry.getKey(), buildTarget.build());
+
       if (isJavaRule(ruleClass)) {
         ImmutableSet<Label> thisSources =
             ImmutableSet.copyOf(toLabelList(ruleEntry.getValue().getSourcesList()));
@@ -164,43 +176,17 @@ public class BlazeQueryParser {
     }
 
     long elapsedMs = (System.nanoTime() - now) / 1000000L;
-    context.output(PrintOutput.log("Processed %d targets, in %d ms", nTargets, elapsedMs));
-
-    ArrayList<Entry<String, Integer>> entries = new ArrayList<>(ruleCount.entrySet());
-    entries.sort(Entry.<String, Integer>comparingByValue().reversed());
-    int shown = 0;
-    int limit = 50;
-    for (Entry<String, Integer> entry : entries) {
-      if (entry.getValue() <= limit) {
-        context.output(
-            PrintOutput.log("[...] truncated %d rules with <= %d count", nTargets - shown, limit));
-        break;
-      }
-      shown += entry.getValue();
-      context.output(PrintOutput.log("%s: %d", entry.getKey(), entry.getValue()));
-    }
+    context.output(PrintOutput.log("%-10d Targets (%d ms):", nTargets, elapsedMs));
 
     BuildGraphData graph =
         graphBuilder.sourceOwner(sourceOwner).ruleDeps(ruleDeps).projectDeps(projectDeps).build();
 
-    context.output(PrintOutput.log("Found source files %d", graph.locations().size()));
-    context.output(PrintOutput.log("Found %d targets as java sources", graph.javaSources().size()));
-    context.output(PrintOutput.log("Found %d packages", packages.size()));
-    context.output(PrintOutput.log("Found %d dependencies", deps.size()));
-    context.output(
-        PrintOutput.log(
-            "Of which %d are to targets outside the project", graph.projectDeps().size()));
+    context.output(PrintOutput.log("%-10d Source files", graph.locations().size()));
+    context.output(PrintOutput.log("%-10d Java sources", graph.javaSources().size()));
+    context.output(PrintOutput.log("%-10d Packages", packages.size()));
+    context.output(PrintOutput.log("%-10d Dependencies", deps.size()));
+    context.output(PrintOutput.log("%-10d External dependencies", graph.projectDeps().size()));
 
-    int maxDeps = 0;
-    Label worstSource = null;
-    for (Entry<Label, Set<Label>> e : sourceDeps.entrySet()) {
-      if (e.getValue().size() > maxDeps) {
-        maxDeps = e.getValue().size();
-        worstSource = e.getKey();
-      }
-    }
-    context.output(PrintOutput.log("Source with most direct dependencies (%d) is:", maxDeps));
-    context.output(PrintOutput.log("%s", worstSource));
     return graph;
   }
 }
