@@ -299,6 +299,7 @@ java_library(
         "//intellij_platform_sdk:jsr305",
         "//intellij_platform_sdk:plugin_api",
         "//proto:proto_deps",
+        "//shared",
     ],
 )
 
@@ -407,8 +408,10 @@ java_library(
 java_library(
     name = "artifact_fetcher",
     srcs = [
+        "src/com/google/idea/blaze/base/command/buildresult/LocalFileOutputArtifact.java",
         "src/com/google/idea/blaze/base/command/buildresult/OutputArtifact.java",
         "src/com/google/idea/blaze/base/qsync/cache/ArtifactFetcher.java",
+        "src/com/google/idea/blaze/base/qsync/cache/FileApiArtifactFetcher.java",
         "src/com/google/idea/blaze/base/settings/BuildBinaryType.java",
     ],
     neverlink = 1,

@@ -15,23 +15,25 @@
  */
 package com.google.idea.blaze.base.bazel;
 
+import com.google.errorprone.annotations.MustBeClosed;
 import com.google.idea.blaze.base.command.BlazeCommand;
 import com.google.idea.blaze.base.command.BlazeCommandRunner;
 import com.google.idea.blaze.base.command.buildresult.BuildResultHelper;
 import com.google.idea.blaze.base.command.buildresult.BuildResultHelper.GetArtifactsException;
-import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
+import com.google.idea.blaze.base.command.info.BlazeInfoException;
 import com.google.idea.blaze.base.run.testlogs.BlazeTestResults;
 import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.sync.aspects.BlazeBuildOutputs;
 import com.google.idea.blaze.base.sync.aspects.BuildResult;
 import com.intellij.openapi.project.Project;
+import java.io.IOException;
 import java.io.InputStream;
 
 /**
  * A fake for {@link BlazeCommandRunner} that doesn't execute the build, but returns results from
  * the provided result helper.
  */
-public final class FakeBlazeCommandRunner implements BlazeCommandRunner {
+public class FakeBlazeCommandRunner implements BlazeCommandRunner {
   private BlazeCommand command;
 
   @Override
@@ -39,7 +41,6 @@ public final class FakeBlazeCommandRunner implements BlazeCommandRunner {
       Project project,
       BlazeCommand.Builder blazeCommandBuilder,
       BuildResultHelper buildResultHelper,
-      WorkspaceRoot workspaceRoot,
       BlazeContext context) {
     command = blazeCommandBuilder.build();
     try {
@@ -55,7 +56,6 @@ public final class FakeBlazeCommandRunner implements BlazeCommandRunner {
       Project project,
       BlazeCommand.Builder blazeCommandBuilder,
       BuildResultHelper buildResultHelper,
-      WorkspaceRoot workspaceRoot,
       BlazeContext context) {
     return BlazeTestResults.NO_RESULTS;
   }
@@ -65,8 +65,19 @@ public final class FakeBlazeCommandRunner implements BlazeCommandRunner {
       Project project,
       BlazeCommand.Builder blazeCommandBuilder,
       BuildResultHelper buildResultHelper,
-      WorkspaceRoot workspaceRoot,
-      BlazeContext context) {
+      BlazeContext context)
+      throws IOException {
+    return InputStream.nullInputStream();
+  }
+
+  @Override
+  @MustBeClosed
+  public InputStream runBlazeInfo(
+      Project project,
+      BlazeCommand.Builder blazeCommandBuilder,
+      BuildResultHelper buildResultHelper,
+      BlazeContext context)
+      throws BlazeInfoException {
     return InputStream.nullInputStream();
   }
 
