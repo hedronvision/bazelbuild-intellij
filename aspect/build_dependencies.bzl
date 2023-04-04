@@ -88,6 +88,13 @@ def _collect_dependencies_core_impl(
         exclude,
         always_build_rules,
         generate_aidl_classes):
+    if JavaInfo not in target:
+        return [DependenciesInfo(
+            compile_time_jars = None,
+            target_to_artifacts = None,
+            aars = None,
+            gensrcs = None,
+        )]
     label = str(target.label)
     included = False
     if not include:
@@ -118,7 +125,7 @@ def _collect_dependencies_core_impl(
     if hasattr(ctx.rule.attr, "_junit"):
         deps.append(ctx.rule.attr._junit)
 
-    info_deps = [dep[DependenciesInfo] for dep in deps if DependenciesInfo in dep]
+    info_deps = [dep[DependenciesInfo] for dep in deps if DependenciesInfo in dep and dep[DependenciesInfo].target_to_artifacts]
 
     trs = []
     target_to_artifacts = {}
@@ -212,7 +219,6 @@ collect_dependencies = aspect(
     implementation = _collect_dependencies_impl,
     provides = [DependenciesInfo],
     attr_aspects = ["deps", "exports", "_junit"],
-    required_providers = [[JavaInfo]],
     attrs = {
         "include": attr.string(
             doc = "Comma separated list of workspace paths included in the project as source. Any targets inside here will not be built.",
@@ -245,5 +251,4 @@ collect_all_dependencies_for_tests = aspect(
     implementation = _collect_all_dependencies_for_tests_impl,
     provides = [DependenciesInfo],
     attr_aspects = ["deps", "exports", "_junit"],
-    required_providers = [[JavaInfo]],
 )

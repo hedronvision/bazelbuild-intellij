@@ -28,6 +28,7 @@ import com.google.idea.blaze.base.qsync.cache.ArtifactTracker;
 import com.google.idea.blaze.base.qsync.cache.FileApiArtifactFetcher;
 import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.settings.BlazeImportSettings;
+import com.google.idea.blaze.base.settings.BlazeImportSettings.ProjectType;
 import com.google.idea.blaze.base.settings.BlazeImportSettingsManager;
 import com.google.idea.blaze.base.settings.BuildBinaryType;
 import com.google.idea.blaze.base.sync.data.BlazeDataStorage;
@@ -36,7 +37,11 @@ import com.google.idea.blaze.base.sync.projectview.LanguageSupport;
 import com.google.idea.blaze.base.sync.projectview.WorkspaceLanguageSettings;
 import com.google.idea.blaze.base.sync.workspace.WorkspacePathResolver;
 import com.google.idea.blaze.base.sync.workspace.WorkspacePathResolverImpl;
+import com.google.idea.blaze.common.PrintOutput;
 import com.google.idea.blaze.qsync.BlazeProject;
+import com.google.idea.blaze.qsync.PackageStatementParser;
+import com.google.idea.blaze.qsync.ProjectRefresher;
+import com.google.idea.blaze.qsync.WorkspaceResolvingPackageReader;
 import com.google.idea.blaze.qsync.project.PostQuerySyncData;
 import com.google.idea.blaze.qsync.project.ProjectDefinition;
 import com.google.idea.blaze.qsync.project.SnapshotDeserializer;
@@ -48,6 +53,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.zip.GZIPInputStream;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Loads a project, either from saved state or from a {@code .blazeproject} file, yielding a {@link
@@ -57,16 +63,26 @@ import java.util.zip.GZIPInputStream;
  */
 public class ProjectLoader {
 
-  private final Project project;
+  protected final Project project;
 
   public ProjectLoader(Project project) {
     this.project = project;
   }
 
+  @Nullable
   public QuerySyncProject loadProject(BlazeContext context) throws IOException {
     BlazeImportSettings importSettings =
         Preconditions.checkNotNull(
             BlazeImportSettingsManager.getInstance(project).getImportSettings());
+    if (importSettings.getProjectType() != ProjectType.QUERY_SYNC) {
+      context.output(
+          PrintOutput.error(
+              "The project uses a legacy project structure not compatible with this version of"
+                  + " Android Studio. Please reimport into a newly created project. Learn more at"
+                  + " go/querysync"));
+      context.setHasError();
+      return null;
+    }
 
     Path snapshotFilePath = getSnapshotFilePath(importSettings);
     Optional<PostQuerySyncData> loadedSnapshot = loadFromDisk(snapshotFilePath);
@@ -93,7 +109,7 @@ public class ProjectLoader {
         LanguageSupport.createWorkspaceLanguageSettings(projectViewSet);
 
     DependencyBuilder dependencyBuilder =
-        new BazelBinaryDependencyBuilder(project, buildSystem, importRoots, workspaceRoot);
+        createDependencyBuilder(workspaceRoot, importRoots, buildSystem);
 
     BlazeProject graph = new BlazeProject();
     ArtifactFetcher artifactFetcher = createArtifactFetcher(buildSystem);
@@ -102,8 +118,12 @@ public class ProjectLoader {
     DependencyCache dependencyCache = new DependencyCache(artifactTracker);
     DependencyTracker dependencyTracker =
         new DependencyTracker(workspaceRoot.path(), graph, dependencyBuilder, dependencyCache);
-    ProjectQuerier projectQuerier =
-        ProjectQuerierImpl.create(project, buildSystem, workspaceRoot.path());
+    ProjectRefresher projectRefresher =
+        new ProjectRefresher(
+            new WorkspaceResolvingPackageReader(workspaceRoot.path(), new PackageStatementParser()),
+            workspaceRoot.path());
+    QueryRunner queryRunner = createQueryRunner(workspaceRoot, buildSystem);
+    ProjectQuerier projectQuerier = createProjectQuerier(projectRefresher, queryRunner);
     ProjectUpdater projectUpdater =
         new ProjectUpdater(project, importSettings, projectViewSet, workspaceRoot);
     graph.addListener(projectUpdater);
@@ -135,6 +155,20 @@ public class ProjectLoader {
     //   the BuildGraphData etc.
     loadedProject.sync(context, loadedSnapshot);
     return loadedProject;
+  }
+
+  private ProjectQuerierImpl createProjectQuerier(
+      ProjectRefresher projectRefresher, QueryRunner queryRunner) {
+    return new ProjectQuerierImpl(project, queryRunner, projectRefresher);
+  }
+
+  protected QueryRunner createQueryRunner(WorkspaceRoot workspaceRoot, BuildSystem buildSystem) {
+    return new BazelQueryRunner(project, buildSystem, workspaceRoot.path());
+  }
+
+  protected DependencyBuilder createDependencyBuilder(
+      WorkspaceRoot workspaceRoot, ImportRoots importRoots, BuildSystem buildSystem) {
+    return new BazelDependencyBuilder(project, buildSystem, importRoots, workspaceRoot);
   }
 
   public Optional<PostQuerySyncData> loadFromDisk(Path snapshotFilePath) throws IOException {
