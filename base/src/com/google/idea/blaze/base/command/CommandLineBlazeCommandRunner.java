@@ -20,6 +20,8 @@ import com.google.errorprone.annotations.MustBeClosed;
 import com.google.idea.blaze.base.async.process.ExternalTask;
 import com.google.idea.blaze.base.async.process.LineProcessingOutputStream;
 import com.google.idea.blaze.base.async.process.PrintOutputLineProcessor;
+import com.google.idea.blaze.base.bazel.BazelExitCodeException;
+import com.google.idea.blaze.base.bazel.BazelExitCodeException.ThrowOption;
 import com.google.idea.blaze.base.command.buildresult.BuildEventProtocolUtils;
 import com.google.idea.blaze.base.command.buildresult.BuildResultHelper;
 import com.google.idea.blaze.base.command.buildresult.BuildResultHelper.GetArtifactsException;
@@ -34,6 +36,7 @@ import com.google.idea.blaze.base.sync.aspects.BlazeBuildOutputs;
 import com.google.idea.blaze.base.sync.aspects.BuildResult;
 import com.google.idea.blaze.base.sync.aspects.BuildResult.Status;
 import com.google.idea.blaze.common.PrintOutput;
+import com.google.idea.blaze.exception.BuildException;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import java.io.BufferedInputStream;
@@ -45,13 +48,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
-import javax.annotation.Nullable;
 
 /** {@inheritDoc} Start a build via local binary. */
 public class CommandLineBlazeCommandRunner implements BlazeCommandRunner {
-
-  private static final int SUCCESS_EXIT_CODE = 0;
-  private static final int PARTIAL_SUCCESS_EXIT_CODE = 3;
 
   @Override
   public BlazeBuildOutputs run(
@@ -99,37 +98,35 @@ public class CommandLineBlazeCommandRunner implements BlazeCommandRunner {
     }
   }
 
-  @Nullable
   @Override
   public InputStream runQuery(
       Project project,
       BlazeCommand.Builder blazeCommandBuilder,
       BuildResultHelper buildResultHelper,
       BlazeContext context)
-      throws FileNotFoundException {
+      throws BuildException {
     File outputFile = BuildEventProtocolUtils.createTempOutputFile();
-    FileOutputStream out = new FileOutputStream(outputFile);
-    int retVal =
-        ExternalTask.builder(WorkspaceRoot.fromProject(project))
-            .addBlazeCommand(blazeCommandBuilder.build())
-            .context(context)
-            .stdout(out)
-            .stderr(
-                LineProcessingOutputStream.of(
-                    line -> {
-                      // errors are expected, so limit logging to info level
-                      Logger.getInstance(this.getClass()).info(line);
-                      return true;
-                    }))
-            .build()
-            .run();
-    if (retVal != SUCCESS_EXIT_CODE && retVal != PARTIAL_SUCCESS_EXIT_CODE) {
-      // A return value of 3 indicates that the query completed, but there were some
-      // errors in the query, like querying a directory with no build files / no targets.
-      // Instead of returning null, we allow returning the parsed targets, if any.
-      return null;
+    try (FileOutputStream out = new FileOutputStream(outputFile)) {
+      int retVal =
+          ExternalTask.builder(WorkspaceRoot.fromProject(project))
+              .addBlazeCommand(blazeCommandBuilder.build())
+              .context(context)
+              .stdout(out)
+              .stderr(
+                  LineProcessingOutputStream.of(
+                      line -> {
+                        // errors are expected, so limit logging to info level
+                        Logger.getInstance(this.getClass()).info(line);
+                        return true;
+                      }))
+              .build()
+              .run();
+      BazelExitCodeException.throwIfFailed(
+          blazeCommandBuilder, retVal, ThrowOption.ALLOW_PARTIAL_SUCCESS);
+      return new BufferedInputStream(new FileInputStream(outputFile));
+    } catch (IOException e) {
+      throw new BuildException(e);
     }
-    return new BufferedInputStream(new FileInputStream(outputFile));
   }
 
   @Override
@@ -184,5 +181,15 @@ public class CommandLineBlazeCommandRunner implements BlazeCommandRunner {
             .build()
             .run();
     return BuildResult.fromExitCode(retVal);
+  }
+
+  @Override
+  public Optional<Integer> getMaxCommandLineLength() {
+    // Return a conservative value.
+    // `getconf ARG_MAX` returns large values (1048576 on mac, 2097152 on linux) but this is
+    // much larger than the actual command line limit seen in practice.
+    // On linux, `xargs --show-limits` says "Size of command buffer we are actually using: 131072"
+    // so choose a value somewhere south of that, which seems to work.
+    return Optional.of(130000);
   }
 }

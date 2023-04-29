@@ -18,6 +18,8 @@ package com.google.idea.blaze.base.qsync;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.idea.blaze.base.bazel.BuildSystem;
 import com.google.idea.blaze.base.bazel.BuildSystemProvider;
 import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
@@ -40,12 +42,14 @@ import com.google.idea.blaze.base.sync.workspace.WorkspacePathResolverImpl;
 import com.google.idea.blaze.common.PrintOutput;
 import com.google.idea.blaze.qsync.BlazeProject;
 import com.google.idea.blaze.qsync.PackageStatementParser;
+import com.google.idea.blaze.qsync.ParallelPackageReader;
 import com.google.idea.blaze.qsync.ProjectRefresher;
 import com.google.idea.blaze.qsync.WorkspaceResolvingPackageReader;
 import com.google.idea.blaze.qsync.project.PostQuerySyncData;
 import com.google.idea.blaze.qsync.project.ProjectDefinition;
 import com.google.idea.blaze.qsync.project.SnapshotDeserializer;
 import com.intellij.openapi.project.Project;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -84,9 +88,6 @@ public class ProjectLoader {
       return null;
     }
 
-    Path snapshotFilePath = getSnapshotFilePath(importSettings);
-    Optional<PostQuerySyncData> loadedSnapshot = loadFromDisk(snapshotFilePath);
-
     WorkspaceRoot workspaceRoot = WorkspaceRoot.fromImportSettings(importSettings);
     // TODO we may need to get the WorkspacePathResolver from the VcsHandler, as the old sync
     // does inside ProjectStateSyncTask.computeWorkspacePathResolverAndProjectView
@@ -119,21 +120,27 @@ public class ProjectLoader {
     DependencyTracker dependencyTracker =
         new DependencyTracker(workspaceRoot.path(), graph, dependencyBuilder, dependencyCache);
     ProjectRefresher projectRefresher =
-        new ProjectRefresher(
-            new WorkspaceResolvingPackageReader(workspaceRoot.path(), new PackageStatementParser()),
-            workspaceRoot.path());
+        new ProjectRefresher(createPackageReader(workspaceRoot), workspaceRoot.path());
     QueryRunner queryRunner = createQueryRunner(buildSystem);
     ProjectQuerier projectQuerier = createProjectQuerier(projectRefresher, queryRunner);
     ProjectUpdater projectUpdater =
         new ProjectUpdater(project, importSettings, projectViewSet, workspaceRoot);
     graph.addListener(projectUpdater);
+    QuerySyncSourceToTargetMap sourceToTargetMap =
+        new QuerySyncSourceToTargetMap(graph, workspaceRoot.path());
+
+    ProjectDefinition latestProjectDef =
+        ProjectDefinition.create(importRoots.rootPaths(), importRoots.excludePaths());
+
+    Path snapshotFilePath = getSnapshotFilePath(importSettings);
+    Optional<PostQuerySyncData> loadedSnapshot = loadFromDisk(snapshotFilePath);
+    // don't use the snapshot if the project definition has changed, since a full re-load will be
+    // necessary in that case:
+    loadedSnapshot =
+        loadedSnapshot.filter(snapshot -> snapshot.projectDefinition().equals(latestProjectDef));
 
     ProjectDefinition projectDefinition =
-        loadedSnapshot
-            .map(PostQuerySyncData::projectDefinition)
-            .orElseGet(
-                () ->
-                    ProjectDefinition.create(importRoots.rootPaths(), importRoots.excludePaths()));
+        loadedSnapshot.map(PostQuerySyncData::projectDefinition).orElse(latestProjectDef);
 
     QuerySyncProject loadedProject =
         new QuerySyncProject(
@@ -148,13 +155,19 @@ public class ProjectLoader {
             projectDefinition,
             projectViewSet,
             workspacePathResolver,
-            workspaceLanguageSettings);
-    // If we don't want to do a sync on startup, some more logic will be needed here:
-    // - in the case of a new project (loadedSnapshot is empty), do a full sync
-    // - when loadedSnapshot is not empty, we need to re-run the final stage of sync to regenerate
-    //   the BuildGraphData etc.
-    loadedProject.sync(context, loadedSnapshot);
+            workspaceLanguageSettings,
+            sourceToTargetMap);
     return loadedProject;
+  }
+
+  private static ParallelPackageReader createPackageReader(WorkspaceRoot workspaceRoot) {
+    ListeningExecutorService executor =
+        MoreExecutors.listeningDecorator(
+            AppExecutorUtil.createBoundedApplicationPoolExecutor("ParallelPackageReader", 128));
+
+    return new ParallelPackageReader(
+        executor,
+        new WorkspaceResolvingPackageReader(workspaceRoot.path(), new PackageStatementParser()));
   }
 
   private ProjectQuerierImpl createProjectQuerier(

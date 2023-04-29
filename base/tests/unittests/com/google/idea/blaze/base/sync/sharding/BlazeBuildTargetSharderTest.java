@@ -64,6 +64,7 @@ import com.google.idea.blaze.base.sync.BlazeSyncPlugin;
 import com.google.idea.blaze.base.sync.aspects.BuildResult;
 import com.google.idea.blaze.base.sync.sharding.BlazeBuildTargetSharder.ShardedTargetsResult;
 import com.google.idea.blaze.base.sync.workspace.WorkspacePathResolverImpl;
+import com.google.idea.blaze.exception.BuildException;
 import com.google.idea.common.experiments.ExperimentService;
 import com.google.idea.common.experiments.MockExperimentService;
 import com.intellij.openapi.project.Project;
@@ -418,9 +419,9 @@ public class BlazeBuildTargetSharderTest extends BlazeTestCase {
         BlazeCommand.Builder blazeCommandBuilder,
         BuildResultHelper buildResultHelper,
         BlazeContext context)
-        throws IOException {
+        throws BuildException {
       if (this.failure) {
-        throw new IOException();
+        throw new BuildException("failure");
       }
       return new ByteArrayInputStream(
           String.join(System.lineSeparator(), outputMessages).getBytes(UTF_8));

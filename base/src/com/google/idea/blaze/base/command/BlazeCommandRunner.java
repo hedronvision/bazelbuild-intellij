@@ -18,15 +18,14 @@ package com.google.idea.blaze.base.command;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.MustBeClosed;
 import com.google.idea.blaze.base.command.buildresult.BuildResultHelper;
-import com.google.idea.blaze.base.command.info.BlazeInfoException;
 import com.google.idea.blaze.base.run.testlogs.BlazeTestResults;
 import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.sync.aspects.BlazeBuildOutputs;
+import com.google.idea.blaze.exception.BuildException;
 import com.intellij.openapi.project.Project;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import javax.annotation.Nullable;
+import java.util.Optional;
 
 /** Runs a blaze command. */
 public interface BlazeCommandRunner {
@@ -57,13 +56,12 @@ public interface BlazeCommandRunner {
    * @return {@link InputStream} from the stdout of the blaze invocation using the given {@link
    *     BuildResultHelper} and null if the query fails
    */
-  @Nullable
   InputStream runQuery(
       Project project,
       BlazeCommand.Builder blazeCommandBuilder,
       BuildResultHelper buildResultHelper,
       BlazeContext context)
-      throws IOException;
+      throws BuildException;
 
   @MustBeClosed
   InputStream runBlazeInfo(
@@ -71,7 +69,7 @@ public interface BlazeCommandRunner {
       BlazeCommand.Builder blazeCommandBuilder,
       BuildResultHelper buildResultHelper,
       BlazeContext context)
-      throws BlazeInfoException;
+      throws BuildException;
   /** Allows enabling the use of command runner for restricted set of users. */
   default boolean shouldUseForLocalTests() {
     return false;
@@ -80,5 +78,9 @@ public interface BlazeCommandRunner {
   /** Get a list of additional build flags. */
   default List<String> getExtraBuildFlags(BlazeCommand.Builder blazeCommandBuilder) {
     return ImmutableList.of();
+  }
+
+  default Optional<Integer> getMaxCommandLineLength() {
+    return Optional.empty();
   }
 }

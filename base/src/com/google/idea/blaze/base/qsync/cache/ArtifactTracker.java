@@ -23,16 +23,22 @@ import static com.google.idea.blaze.qsync.project.BlazeProjectDataStorage.LIBRAR
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Sets.SetView;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.intellij.qsync.ArtifactTrackerData.BuildArtifacts;
 import com.google.devtools.intellij.qsync.ArtifactTrackerData.TargetArtifacts;
 import com.google.idea.blaze.base.qsync.OutputInfo;
+import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.settings.BlazeImportSettings;
 import com.google.idea.blaze.base.sync.data.BlazeDataStorage;
+import com.google.idea.blaze.common.DownloadTrackingScope;
 import com.google.idea.blaze.common.Label;
+import com.google.idea.blaze.common.PrintOutput;
+import com.google.idea.blaze.exception.BuildException;
 import com.google.protobuf.ExtensionRegistry;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -40,10 +46,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -56,7 +62,7 @@ public class ArtifactTracker {
 
   private static final Logger logger = Logger.getInstance(ArtifactTracker.class);
 
-  // The artifacts in the cahce. Note that artifacts that do not produce files are also stored here.
+  // The artifacts in the cache. Note that artifacts that do not produce files are also stored here.
   // So, it is not the same for a label not to be present, than a label to have an empty list.
   private final HashMap<Label, List<Path>> artifacts = new HashMap<>();
 
@@ -101,11 +107,11 @@ public class ArtifactTracker {
     artifacts.clear();
     try (InputStream stream = new GZIPInputStream(Files.newInputStream(persistentFile))) {
       BuildArtifacts saved = BuildArtifacts.parseFrom(stream, ExtensionRegistry.getEmptyRegistry());
-      for (TargetArtifacts arts : saved.getArtifactsList()) {
-        for (String path : arts.getArtifactPathsList()) {
-          Label label = Label.of(arts.getTarget());
-          List<Path> value = artifacts.computeIfAbsent(label, k -> new ArrayList<>());
-          value.add(Path.of(path));
+      for (TargetArtifacts targetArtifact : saved.getArtifactsList()) {
+        Label label = Label.of(targetArtifact.getTarget());
+        List<Path> artifactPathList = artifacts.computeIfAbsent(label, k -> new ArrayList<>());
+        for (String path : targetArtifact.getArtifactPathsList()) {
+          artifactPathList.add(Path.of(path));
         }
       }
     } catch (IOException e) {
@@ -132,18 +138,40 @@ public class ArtifactTracker {
    * Merges TargetToDeps into tracker maps and cache necessary OutputArtifact to local. The
    * artifacts will not be added into tracker if it's failed to be cached.
    */
-  public UpdateResult add(Set<Label> targets, OutputInfo outputInfo) throws IOException {
-    ImmutableSet.Builder<Path> updatedBuilder = ImmutableSet.builder();
-    ImmutableSet.Builder<String> removedBuilder = ImmutableSet.builder();
+  public UpdateResult add(Set<Label> targets, OutputInfo outputInfo, BlazeContext outerContext)
+      throws BuildException {
+    try (BlazeContext context = BlazeContext.create(outerContext)) {
+      DownloadTrackingScope downloads = new DownloadTrackingScope();
+      context.push(downloads);
+      ListenableFuture<ImmutableSet<Path>> jars = jarCache.cache(outputInfo.getJars(), context);
+      ListenableFuture<ImmutableSet<Path>> aars = aarCache.cache(outputInfo.getAars(), context);
+      ListenableFuture<ImmutableSet<Path>> genSrcs =
+          generatedSrcFileCache.cache(outputInfo.getGeneratedSources(), context);
+      if (downloads.getFileCount() > 0) {
+        context.output(
+            PrintOutput.log(
+                "Downloading %d build artifacts (%s)",
+                downloads.getFileCount(), StringUtil.formatFileSize(downloads.getTotalBytes())));
+      }
 
-    updatedBuilder
-        .addAll(jarCache.cache(outputInfo.getJars()))
-        .addAll(aarCache.cache(outputInfo.getAars()))
-        .addAll(generatedSrcFileCache.cache(outputInfo.getGeneratedSources()));
-    for (BuildArtifacts artifacts : outputInfo.getArtifacts()) {
-      updateMaps(targets, artifacts);
+      ListenableFuture<?> cacheFetches = Futures.allAsList(jars, aars, genSrcs);
+      context.addCancellationHandler(() -> cacheFetches.cancel(false));
+      Uninterruptibles.getUninterruptibly(cacheFetches);
+      ImmutableSet<Path> updated =
+          ImmutableSet.<Path>builder()
+              .addAll(Futures.getDone(jars))
+              .addAll(Futures.getDone(aars))
+              .addAll(Futures.getDone(genSrcs))
+              .build();
+
+      for (BuildArtifacts artifacts : outputInfo.getArtifacts()) {
+        updateMaps(targets, artifacts);
+      }
+      return UpdateResult.create(updated, ImmutableSet.of());
+    } catch (ExecutionException | IOException e) {
+      throw new BuildException(e);
     }
-    return UpdateResult.create(updatedBuilder.build(), removedBuilder.build());
+
   }
 
   /**
@@ -153,34 +181,17 @@ public class ArtifactTracker {
    * @param newArtifacts the artifacts that were actually built. From (blaze build)
    */
   private void updateMaps(Set<Label> targets, BuildArtifacts newArtifacts) {
-    Set<Label> built = new HashSet<>();
-    for (TargetArtifacts targetArtifacts : newArtifacts.getArtifactsList()) {
-      Label label = Label.of(targetArtifacts.getTarget());
-      artifacts.remove(label);
-      if (targets.contains(label)) {
-        built.add(label);
-      }
-    }
-    SetView<Label> notBuilt = Sets.difference(targets, built);
-    for (Label label : notBuilt) {
-      logger.warn("Target " + label + " was not built.");
-    }
     for (TargetArtifacts targetArtifacts : newArtifacts.getArtifactsList()) {
       ImmutableList<Path> paths =
           targetArtifacts.getArtifactPathsList().stream().map(Path::of).collect(toImmutableList());
       Label label = Label.of(targetArtifacts.getTarget());
-      if (targets.contains(label)) {
-        List<Path> value = artifacts.computeIfAbsent(label, k -> new ArrayList<>());
-        value.addAll(paths);
-      } else {
-        // This can happen when there is an alias, we expect the alias name to be built,
-        // but we see the 'actual' label being built instead.
-        // Here for all the targets that we did not expect to be built, we add their
-        // artifacts to all the labels that we didn't see.
-        for (Label notBuiltLabel : notBuilt) {
-          List<Path> value = artifacts.computeIfAbsent(notBuiltLabel, k -> new ArrayList<>());
-          value.addAll(paths);
-        }
+      artifacts.put(label, paths);
+    }
+    for (Label label : targets) {
+      if (!artifacts.containsKey(label)) {
+        logger.warn(
+            "Target " + label + "was not built. If the target is an alias, this is expected");
+        artifacts.put(label, new ArrayList<>());
       }
     }
   }

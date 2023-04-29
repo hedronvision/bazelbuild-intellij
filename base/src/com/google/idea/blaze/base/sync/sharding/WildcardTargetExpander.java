@@ -44,12 +44,12 @@ import com.google.idea.blaze.base.sync.aspects.BuildResult;
 import com.google.idea.blaze.base.sync.aspects.BuildResult.Status;
 import com.google.idea.blaze.base.sync.projectview.LanguageSupport;
 import com.google.idea.blaze.base.sync.workspace.WorkspacePathResolver;
+import com.google.idea.blaze.exception.BuildException;
 import com.google.idea.common.experiments.BoolExperiment;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -232,7 +232,7 @@ public class WildcardTargetExpander {
       new BufferedReader(new InputStreamReader(queryResultStream, UTF_8))
           .lines()
           .forEach(outputProcessor::processLine);
-    } catch (IOException e) {
+    } catch (BuildException e) {
       Logger.getInstance(WildcardTargetExpander.class)
           .warn("Error running blaze query to expand the input target pattern", e);
       return new ExpandedTargetsResult(outputProcessor.getTargetLabels(), BuildResult.FATAL_ERROR);

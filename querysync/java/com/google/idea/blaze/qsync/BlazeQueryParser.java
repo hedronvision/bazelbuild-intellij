@@ -122,7 +122,10 @@ public class BlazeQueryParser {
 
       if (isJavaRule(ruleClass)) {
         ImmutableSet<Label> thisSources =
-            ImmutableSet.copyOf(toLabelList(ruleEntry.getValue().getSourcesList()));
+            ImmutableSet.<Label>builder()
+                .addAll(toLabelList(ruleEntry.getValue().getSourcesList()))
+                .addAll(toLabelList(ruleEntry.getValue().getResourceFilesList()))
+                .build();
         Set<Label> thisDeps = Sets.newHashSet(toLabelList(ruleEntry.getValue().getDepsList()));
         ruleDeps.computeIfAbsent(ruleEntry.getKey(), x -> Sets.newHashSet()).addAll(thisDeps);
 
@@ -198,6 +201,7 @@ public class BlazeQueryParser {
             .ruleDeps(ruleDeps)
             .ruleRuntimeDeps(ruleRuntimeDeps)
             .projectDeps(projectDeps)
+            .packages(packages)
             .reverseDeps(caclulateReverseDeps(ruleDeps, ruleRuntimeDeps))
             .build();
 

@@ -24,6 +24,7 @@ import com.google.idea.blaze.base.async.executor.BlazeExecutor;
 import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.vcs.BlazeVcsHandlerProvider;
 import com.google.idea.blaze.common.PrintOutput;
+import com.google.idea.blaze.exception.BuildException;
 import com.google.idea.blaze.qsync.FullProjectUpdate;
 import com.google.idea.blaze.qsync.ProjectRefresher;
 import com.google.idea.blaze.qsync.RefreshOperation;
@@ -36,7 +37,6 @@ import com.google.idea.blaze.qsync.vcs.VcsState;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -64,7 +64,7 @@ public class ProjectQuerierImpl implements ProjectQuerier {
    */
   @Override
   public BlazeProjectSnapshot fullQuery(ProjectDefinition projectDef, BlazeContext context)
-      throws IOException {
+      throws IOException, BuildException {
 
     FullProjectUpdate fullQuery = projectRefresher.startFullUpdate(context, projectDef);
 
@@ -72,9 +72,7 @@ public class ProjectQuerierImpl implements ProjectQuerier {
     // TODO if we throw between here and when we get this future, perhaps we should cancel it?
 
     QuerySpec querySpec = fullQuery.getQuerySpec().get();
-    try (InputStream queryStream = queryRunner.runQuery(querySpec, context)) {
-      fullQuery.setQueryOutput(QuerySummary.create(queryStream));
-    }
+    fullQuery.setQueryOutput(queryRunner.runQuery(querySpec, context));
 
     Optional<VcsState> vcsState = Optional.empty();
     try {
@@ -115,7 +113,7 @@ public class ProjectQuerierImpl implements ProjectQuerier {
    */
   @Override
   public BlazeProjectSnapshot update(PostQuerySyncData previousState, BlazeContext context)
-      throws IOException {
+      throws IOException, BuildException {
 
     Optional<VcsState> vcsState = Optional.empty();
     try {
@@ -138,9 +136,7 @@ public class ProjectQuerierImpl implements ProjectQuerier {
 
     Optional<QuerySpec> spec = refresh.getQuerySpec();
     if (spec.isPresent()) {
-      try (InputStream queryStream = queryRunner.runQuery(spec.get(), context)) {
-        refresh.setQueryOutput(QuerySummary.create(queryStream));
-      }
+      refresh.setQueryOutput(queryRunner.runQuery(spec.get(), context));
     } else {
       refresh.setQueryOutput(QuerySummary.EMPTY);
     }

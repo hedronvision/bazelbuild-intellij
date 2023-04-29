@@ -17,7 +17,10 @@ package com.google.idea.blaze.base.qsync;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.idea.blaze.base.async.executor.ProgressiveTaskWithProgressIndicator;
@@ -32,14 +35,13 @@ import com.google.idea.blaze.base.settings.BlazeUserSettings.FocusBehavior;
 import com.google.idea.blaze.base.sync.SyncMode;
 import com.google.idea.blaze.base.sync.SyncResult;
 import com.google.idea.blaze.base.sync.status.BlazeSyncStatus;
+import com.google.idea.blaze.base.targetmaps.SourceToTargetMap;
 import com.google.idea.blaze.base.toolwindow.Task;
 import com.google.idea.blaze.common.PrintOutput;
 import com.google.idea.blaze.qsync.project.BlazeProjectSnapshot;
 import com.google.idea.blaze.qsync.project.PostQuerySyncData;
 import com.google.idea.blaze.qsync.project.ProjectDefinition;
-import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiFile;
 import com.intellij.serviceContainer.NonInjectable;
@@ -75,7 +77,7 @@ public class QuerySyncManager {
   private volatile QuerySyncProject loadedProject;
 
   public static QuerySyncManager getInstance(Project project) {
-    return ServiceManager.getService(project, QuerySyncManager.class);
+    return project.getService(QuerySyncManager.class);
   }
 
   public QuerySyncManager(Project project) {
@@ -90,11 +92,17 @@ public class QuerySyncManager {
     this.loader = loader;
   }
 
+  @CanIgnoreReturnValue
+  public ListenableFuture<Boolean> reloadProject() {
+    return run("Loading project", "Re-loading project", this::loadProject);
+  }
+
   public void loadProject(BlazeContext context) {
     try {
       QuerySyncProject newProject = loader.loadProject(context);
       if (!context.hasErrors()) {
         loadedProject = Preconditions.checkNotNull(newProject);
+        loadedProject.sync(context, Optional.empty());
       }
     } catch (IOException e) {
       onError("Failed to load project", e, context);
@@ -103,6 +111,10 @@ public class QuerySyncManager {
 
   public Optional<QuerySyncProject> getLoadedProject() {
     return Optional.ofNullable(loadedProject);
+  }
+
+  public boolean isProjectLoaded() {
+    return loadedProject != null;
   }
 
   private void assertProjectLoaded() {
@@ -126,6 +138,11 @@ public class QuerySyncManager {
     return loadedProject.getDependencyCache();
   }
 
+  public SourceToTargetMap getSourceToTargetMap() {
+    assertProjectLoaded();
+    return loadedProject.getSourceToTargetMap();
+  }
+
   @CanIgnoreReturnValue
   public ListenableFuture<Boolean> onStartup() {
     return run("Loading project", "Initializing project structure", this::loadProject);
@@ -144,19 +161,35 @@ public class QuerySyncManager {
 
   private ListenableFuture<Boolean> run(String title, String subTitle, ScopedOperation operation) {
     SettableFuture<Boolean> result = SettableFuture.create();
-    BlazeSyncStatus.getInstance(project).syncStarted();
-    DumbService.getInstance(project)
-        .runWhenSmart(
-            () -> {
-              try {
-                ListenableFuture<Boolean> innerResultFuture =
-                    createAndSubmitRunTask(title, subTitle, operation);
-                result.setFuture(innerResultFuture);
-              } catch (Throwable t) {
-                result.setException(t);
-                throw t;
-              }
-            });
+    BlazeSyncStatus syncStatus = BlazeSyncStatus.getInstance(project);
+    syncStatus.syncStarted();
+    Futures.addCallback(
+        result,
+        new FutureCallback<Boolean>() {
+          @Override
+          public void onSuccess(Boolean success) {
+            syncStatus.syncEnded(SyncMode.FULL, success ? SyncResult.SUCCESS : SyncResult.FAILURE);
+          }
+
+          @Override
+          public void onFailure(Throwable throwable) {
+            if (result.isCancelled()) {
+              syncStatus.syncEnded(SyncMode.FULL, SyncResult.CANCELLED);
+            } else {
+              logger.error("Sync failed", throwable);
+              syncStatus.syncEnded(SyncMode.FULL, SyncResult.FAILURE);
+            }
+          }
+        },
+        MoreExecutors.directExecutor());
+    try {
+      ListenableFuture<Boolean> innerResultFuture =
+          createAndSubmitRunTask(title, subTitle, operation);
+      result.setFuture(innerResultFuture);
+    } catch (Throwable t) {
+      result.setException(t);
+      throw t;
+    }
     return result;
   }
 
@@ -179,9 +212,6 @@ public class QuerySyncManager {
                           .push(scope)
                           .push(new ProblemsViewScope(project, FocusBehavior.ALWAYS));
                       operation.execute(context);
-                      // TODO cancel on exceptions
-                      BlazeSyncStatus.getInstance(project)
-                          .syncEnded(SyncMode.FULL, SyncResult.SUCCESS);
                       return !context.hasErrors();
                     }));
   }

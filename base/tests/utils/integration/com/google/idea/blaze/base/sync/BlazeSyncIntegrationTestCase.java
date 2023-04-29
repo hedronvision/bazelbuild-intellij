@@ -257,7 +257,7 @@ public abstract class BlazeSyncIntegrationTestCase extends BlazeIntegrationTestC
             .submit(
                 () -> {
                   SyncPhaseCoordinator.getInstance(getProject()).runSync(syncParams, true, context);
-                  context.endScope();
+                  context.close();
                 });
     while (!future.isDone()) {
       IdeEventQueue.getInstance().flushQueue();
@@ -312,7 +312,6 @@ public abstract class BlazeSyncIntegrationTestCase extends BlazeIntegrationTestC
       this.results.putAll(results);
     }
   }
-
   private static class MockBlazeIdeInterface implements BlazeIdeInterface {
     private TargetMap targetMap = new TargetMap(ImmutableMap.of());
 

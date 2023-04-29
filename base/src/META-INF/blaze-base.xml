@@ -168,6 +168,7 @@
     </group>
     <group id="Internal.Blaze" text="Blaze" popup="true" internal="true">
       <action internal="true" id="Blaze.QSync.CleanDependencies" class="com.google.idea.blaze.base.qsync.action.CleanDependencies" text="QSync - Clean Dependencies" />
+      <action internal="true" id="Blaze.QSync.ReloadProject" class="com.google.idea.blaze.base.qsync.action.ReloadProject" text="QSync - Reload project" />
       <add-to-group group-id="Internal"/>
     </group>
   </actions>
@@ -235,14 +236,14 @@
     <projectService serviceInterface="com.google.idea.blaze.base.toolwindow.TasksToolWindowService"
                     serviceImplementation="com.google.idea.blaze.base.toolwindow.TasksToolWindowServiceImpl"/>
     <projectService serviceInterface="com.google.idea.blaze.base.targetmaps.SourceToTargetMap"
-                    serviceImplementation="com.google.idea.blaze.base.targetmaps.SourceToTargetMapImpl"/>
+                    serviceImplementation="com.google.idea.blaze.base.targetmaps.DelegatingSourceToTargetMap"/>
     <projectService serviceInterface="com.google.idea.blaze.base.targetmaps.TransitiveDependencyMap"
                     serviceImplementation="com.google.idea.blaze.base.targetmaps.TransitiveDependencyMap"/>
     <projectService serviceImplementation="com.google.idea.blaze.base.settings.BlazeImportSettingsManager"/>
     <projectService serviceImplementation="com.google.idea.blaze.base.sync.status.BlazeSyncStatusStateManager"/>
     <applicationService serviceImplementation="com.google.idea.blaze.base.settings.BlazeUserSettings" id="BlazeUserSettings"/>
     <applicationService serviceImplementation="com.google.idea.blaze.base.sync.autosync.AutoSyncSettings" order="after BlazeUserSettings"/>
-    <applicationService serviceInterface="com.google.idea.blaze.base.lang.buildfile.language.semantics.BuildLanguageSpecProvider"
+    <projectService serviceInterface="com.google.idea.blaze.base.lang.buildfile.language.semantics.BuildLanguageSpecProvider"
                         serviceImplementation="com.google.idea.blaze.base.lang.buildfile.language.semantics.BuildLanguageSpecProviderImpl"/>
     <applicationService serviceInterface="com.google.idea.blaze.base.sync.projectstructure.ModuleEditorProvider"
                         serviceImplementation="com.google.idea.blaze.base.sync.projectstructure.ModuleEditorProviderImpl"/>
@@ -494,6 +495,7 @@
     <SyncListener implementation="com.google.idea.blaze.base.sync.BlazeSyncModificationTracker$Updater"/>
     <SyncListener implementation="com.google.idea.blaze.base.sync.libraries.ExternalLibraryManager$StartSyncListener"/>
     <SyncListener implementation="com.google.idea.blaze.base.sync.autosync.ProjectTargetManagerImpl$TargetSyncListener"/>
+    <SyncListener implementation="com.google.idea.blaze.base.lang.buildfile.language.semantics.BuildLanguageSpecProviderImpl$Listener"/>
     <SyncPlugin implementation="com.google.idea.blaze.base.lang.buildfile.sync.BuildLangSyncPlugin"/>
     <SyncPlugin implementation="com.google.idea.blaze.base.sync.libraries.ExternalLibraryManager$SyncPlugin"/>
     <BuildFlagsProvider implementation="com.google.idea.blaze.base.command.BuildFlagsProviderImpl"/>

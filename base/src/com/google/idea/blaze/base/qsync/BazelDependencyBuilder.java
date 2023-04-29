@@ -15,6 +15,7 @@
  */
 package com.google.idea.blaze.base.qsync;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
@@ -23,6 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.intellij.qsync.ArtifactTrackerData.BuildArtifacts;
+import com.google.idea.blaze.base.bazel.BazelExitCodeException;
 import com.google.idea.blaze.base.bazel.BuildSystem;
 import com.google.idea.blaze.base.bazel.BuildSystem.BuildInvoker;
 import com.google.idea.blaze.base.command.BlazeCommand;
@@ -31,7 +33,6 @@ import com.google.idea.blaze.base.command.BlazeFlags;
 import com.google.idea.blaze.base.command.BlazeInvocationContext;
 import com.google.idea.blaze.base.command.buildresult.BlazeArtifact;
 import com.google.idea.blaze.base.command.buildresult.BuildResultHelper;
-import com.google.idea.blaze.base.command.buildresult.BuildResultHelper.GetArtifactsException;
 import com.google.idea.blaze.base.command.buildresult.OutputArtifact;
 import com.google.idea.blaze.base.model.primitives.WorkspacePath;
 import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
@@ -42,10 +43,11 @@ import com.google.idea.blaze.base.sync.aspects.BlazeBuildOutputs;
 import com.google.idea.blaze.base.sync.aspects.strategy.AspectStrategy;
 import com.google.idea.blaze.base.sync.projectview.ImportRoots;
 import com.google.idea.blaze.common.Label;
+import com.google.idea.blaze.exception.BuildException;
 import com.google.idea.blaze.qsync.BlazeQueryParser;
 import com.google.protobuf.TextFormat;
-import com.intellij.ide.plugins.IdeaPluginDescriptor;
 import com.intellij.ide.plugins.PluginManager;
+import com.intellij.openapi.extensions.PluginDescriptor;
 import com.intellij.openapi.project.Project;
 import java.io.IOException;
 import java.io.InputStream;
@@ -78,14 +80,12 @@ public class BazelDependencyBuilder implements DependencyBuilder {
 
   @Override
   public OutputInfo build(BlazeContext context, Set<Label> buildTargets)
-      throws IOException, GetArtifactsException {
+      throws IOException, BuildException {
     BuildInvoker invoker = buildSystem.getDefaultInvoker(project, context);
     try (BuildResultHelper buildResultHelper = invoker.createBuildResultHelper()) {
-
-      IdeaPluginDescriptor plugin =
-          PluginManager.getPlugin(
-              PluginManager.getPluginByClassName(AspectStrategy.class.getName()));
-      Path aspect = Paths.get(plugin.getPath().toString(), "aspect", "build_dependencies.bzl");
+      PluginDescriptor plugin = checkNotNull(PluginManager.getPluginByClass(AspectStrategy.class));
+      Path aspect =
+          Paths.get(plugin.getPluginPath().toString(), "aspect", "build_dependencies.bzl");
       String includes =
           importRoots.rootDirectories().stream()
               .map(BazelDependencyBuilder::directoryToLabel)
@@ -131,6 +131,7 @@ public class BazelDependencyBuilder implements DependencyBuilder {
 
       BlazeBuildOutputs outputs =
           invoker.getCommandRunner().run(project, builder, buildResultHelper, context);
+      BazelExitCodeException.throwIfFailed(builder, outputs.buildResult);
       return createOutputInfo(outputs);
     }
   }
