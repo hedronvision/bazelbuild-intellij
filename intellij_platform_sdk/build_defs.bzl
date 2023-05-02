@@ -13,8 +13,8 @@ INDIRECT_IJ_PRODUCTS = {
     "intellij-ue-under-dev": "intellij-ue-2022.3",
     "android-studio-latest": "android-studio-2022.2",
     "android-studio-latest-mac": "android-studio-2022.2-mac",
-    "android-studio-beta": "android-studio-2022.2",
-    "android-studio-beta-mac": "android-studio-2022.2-mac",
+    "android-studio-beta": "android-studio-2022.3",
+    "android-studio-beta-mac": "android-studio-2022.3-mac",
     "android-studio-canary": "android-studio-2022.3",
     "android-studio-canary-mac": "android-studio-2022.3-mac",
     "android-studio-dev": "android-studio-dev",
@@ -127,14 +127,6 @@ DIRECT_IJ_PRODUCTS = {
     "intellij-ue-2023.1-mac": struct(
         ide = "intellij-ue",
         directory = "intellij_ue_2023_1",
-    ),
-    "android-studio-2021.3": struct(
-        ide = "android-studio",
-        directory = "android_studio_2021_3",
-    ),
-    "android-studio-2022.1": struct(
-        ide = "android-studio",
-        directory = "android_studio_2022_1",
     ),
     "android-studio-2022.2": struct(
         ide = "android-studio",
@@ -512,8 +504,6 @@ def java_version_flags():
         "intellij-ue-2022.1-mac": java11,
         "intellij-ue-2022.2": java11,
         "intellij-ue-2022.2-mac": java11,
-        "android-studio-2021.3": java11,
-        "android-studio-2022.1": java11,
         "android-studio-2022.2": java11,
         "android-studio-dev": java11,
         "clion-2021.3": java11,

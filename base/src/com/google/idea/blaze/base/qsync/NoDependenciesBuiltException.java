@@ -13,19 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.tools.idea.sdk;
+package com.google.idea.blaze.base.qsync;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.projectRoots.Sdk;
-import java.io.File;
-import java.util.List;
-import javax.annotation.Nullable;
+import com.google.idea.blaze.exception.BuildException;
 
-/** Compat shim for {@link IdeSdksCompat} */
-public class IdeSdksCompat {
-  private IdeSdksCompat() {}
+/**
+ * No dependencies were built as part of a "build dependencies" action, perhaps due to a build file
+ * error.
+ */
+public class NoDependenciesBuiltException extends BuildException {
 
-  public static List<Sdk> setAndroidSdkPath(File file, Sdk javaSdk, @Nullable Project project) {
-    return IdeSdks.getInstance().setAndroidSdkPath(file, javaSdk, project);
+  public NoDependenciesBuiltException(String message) {
+    super(message);
+  }
+
+  @Override
+  public boolean isIdeError() {
+    return false;
   }
 }

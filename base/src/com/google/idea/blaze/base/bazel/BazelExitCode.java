@@ -13,19 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.tools.idea.sdk;
+package com.google.idea.blaze.base.bazel;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.projectRoots.Sdk;
-import java.io.File;
-import java.util.List;
-import javax.annotation.Nullable;
+/**
+ * Contains constants for selected bazel exit codes.
+ *
+ * <p>See https://docs.bazel.build/versions/0.21.0/guide.html#what-exit-code-will-i-get
+ */
+public class BazelExitCode {
+  private BazelExitCode() {}
 
-/** Compat shim for {@link IdeSdksCompat} */
-public class IdeSdksCompat {
-  private IdeSdksCompat() {}
-
-  public static List<Sdk> setAndroidSdkPath(File file, Sdk javaSdk, @Nullable Project project) {
-    return IdeSdks.getInstance().setAndroidSdkPath(file, javaSdk, project);
-  }
+  public static final int SUCCESS = 0;
+  public static final int BUILD_FAILED = 1;
+  public static final int PARTIAL_SUCCESS = 3;
 }

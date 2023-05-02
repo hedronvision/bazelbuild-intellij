@@ -95,10 +95,10 @@ public class ProjectLoader {
     // implementations of WorkspacePathResolver exists. Perhaps they are performance
     // optimizations?
     WorkspacePathResolver workspacePathResolver = new WorkspacePathResolverImpl(workspaceRoot);
+
+    ProjectViewManager projectViewManager = ProjectViewManager.getInstance(project);
     ProjectViewSet projectViewSet =
-        checkNotNull(
-            ProjectViewManager.getInstance(project)
-                .reloadProjectView(context, workspacePathResolver));
+        checkNotNull(projectViewManager.reloadProjectView(context, workspacePathResolver));
     ImportRoots importRoots =
         ImportRoots.builder(workspaceRoot, importSettings.getBuildSystem())
             .add(projectViewSet)
@@ -108,26 +108,6 @@ public class ProjectLoader {
             .getBuildSystem();
     WorkspaceLanguageSettings workspaceLanguageSettings =
         LanguageSupport.createWorkspaceLanguageSettings(projectViewSet);
-
-    DependencyBuilder dependencyBuilder =
-        createDependencyBuilder(workspaceRoot, importRoots, buildSystem);
-
-    BlazeProject graph = new BlazeProject();
-    ArtifactFetcher artifactFetcher = createArtifactFetcher(buildSystem);
-    ArtifactTracker artifactTracker = new ArtifactTracker(importSettings, artifactFetcher);
-    artifactTracker.initialize();
-    DependencyCache dependencyCache = new DependencyCache(artifactTracker);
-    DependencyTracker dependencyTracker =
-        new DependencyTracker(workspaceRoot.path(), graph, dependencyBuilder, dependencyCache);
-    ProjectRefresher projectRefresher =
-        new ProjectRefresher(createPackageReader(workspaceRoot), workspaceRoot.path());
-    QueryRunner queryRunner = createQueryRunner(buildSystem);
-    ProjectQuerier projectQuerier = createProjectQuerier(projectRefresher, queryRunner);
-    ProjectUpdater projectUpdater =
-        new ProjectUpdater(project, importSettings, projectViewSet, workspaceRoot);
-    graph.addListener(projectUpdater);
-    QuerySyncSourceToTargetMap sourceToTargetMap =
-        new QuerySyncSourceToTargetMap(graph, workspaceRoot.path());
 
     ProjectDefinition latestProjectDef =
         ProjectDefinition.create(importRoots.rootPaths(), importRoots.excludePaths());
@@ -141,6 +121,27 @@ public class ProjectLoader {
 
     ProjectDefinition projectDefinition =
         loadedSnapshot.map(PostQuerySyncData::projectDefinition).orElse(latestProjectDef);
+
+    DependencyBuilder dependencyBuilder =
+        createDependencyBuilder(workspaceRoot, projectDefinition, importRoots, buildSystem);
+
+    BlazeProject graph = new BlazeProject();
+    ArtifactFetcher artifactFetcher = createArtifactFetcher(buildSystem);
+    ArtifactTracker artifactTracker = new ArtifactTracker(importSettings, artifactFetcher);
+    artifactTracker.initialize();
+    DependencyCache dependencyCache = new DependencyCache(artifactTracker);
+    DependencyTracker dependencyTracker =
+        new DependencyTracker(graph, dependencyBuilder, dependencyCache);
+    ProjectRefresher projectRefresher =
+        new ProjectRefresher(createPackageReader(workspaceRoot), workspaceRoot.path());
+    QueryRunner queryRunner = createQueryRunner(buildSystem);
+    ProjectQuerier projectQuerier = createProjectQuerier(projectRefresher, queryRunner);
+    ProjectUpdater projectUpdater =
+        new ProjectUpdater(project, importSettings, projectViewSet, workspaceRoot);
+    graph.addListener(projectUpdater);
+    QuerySyncSourceToTargetMap sourceToTargetMap =
+        new QuerySyncSourceToTargetMap(graph, workspaceRoot.path());
+
 
     QuerySyncProject loadedProject =
         new QuerySyncProject(
@@ -156,7 +157,8 @@ public class ProjectLoader {
             projectViewSet,
             workspacePathResolver,
             workspaceLanguageSettings,
-            sourceToTargetMap);
+            sourceToTargetMap,
+            projectViewManager);
     return loadedProject;
   }
 
@@ -180,8 +182,12 @@ public class ProjectLoader {
   }
 
   protected DependencyBuilder createDependencyBuilder(
-      WorkspaceRoot workspaceRoot, ImportRoots importRoots, BuildSystem buildSystem) {
-    return new BazelDependencyBuilder(project, buildSystem, importRoots, workspaceRoot);
+      WorkspaceRoot workspaceRoot,
+      ProjectDefinition projectDefinition,
+      ImportRoots importRoots,
+      BuildSystem buildSystem) {
+    return new BazelDependencyBuilder(
+        project, projectDefinition, buildSystem, importRoots, workspaceRoot);
   }
 
   public Optional<PostQuerySyncData> loadFromDisk(Path snapshotFilePath) throws IOException {
