@@ -935,6 +935,50 @@ java_library(
     ),
 )
 
+# IntelliJ gradle plugin
+java_library(
+    name = "gradle",
+    neverlink = 1,
+    exports = select_from_plugin_api_directory(
+        android_studio = [],
+        clion = [],
+        intellij = [":gradle"],
+    ),
+)
+
+java_library(
+    name = "gradle_for_tests",
+    testonly = 1,
+    exports = select_from_plugin_api_directory(
+        android_studio = [],
+        clion = [],
+        intellij = [":gradle"],
+    ),
+)
+
+# IntelliJ DatabaseTools plugin
+java_library(
+    name = "database_tools",
+    neverlink = 1,
+    exports = select_from_plugin_api_directory(
+        android_studio = [],
+        clion = [],
+        intellij = [],
+        intellij_ue = [":database_tools"],
+    ),
+)
+
+java_library(
+    name = "database_tools_for_tests",
+    testonly = 1,
+    exports = select_from_plugin_api_directory(
+        android_studio = [],
+        clion = [],
+        intellij = [],
+        intellij_ue = [":database_tools"],
+    ),
+)
+
 filegroup(
     name = "application_info_json",
     srcs = select_from_plugin_api_directory(

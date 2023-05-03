@@ -75,19 +75,16 @@ public class ArtifactTracker {
     jarCache =
         new FileCache(
             /* cacheDir= */ getProjectDirectory(importSettings).resolve(LIBRARY_DIRECTORY),
-            /* toCacheFileExtension= */ ImmutableSet.of("jar"),
             /* extractAfterFetch= */ false,
             /* artifactFetcher= */ artifactFetcher);
     aarCache =
         new FileCache(
             /* cacheDir= */ getExternalAarDirectory(importSettings),
-            /* toCacheFileExtension= */ ImmutableSet.of("aar"),
             /* extractAfterFetch= */ true,
             /* artifactFetcher= */ artifactFetcher);
     generatedSrcFileCache =
         new FileCache(
             /* cacheDir= */ getProjectDirectory(importSettings).resolve(GEN_SRC_DIRECTORY),
-            /* toCacheFileExtension= */ ImmutableSet.of("java", "kt", "srcjar"),
             /* extractAfterFetch= */ true,
             /* artifactFetcher= */ artifactFetcher);
     persistentFile = getProjectDirectory(importSettings).resolve(".artifact.info");
@@ -190,7 +187,7 @@ public class ArtifactTracker {
     for (Label label : targets) {
       if (!artifacts.containsKey(label)) {
         logger.warn(
-            "Target " + label + "was not built. If the target is an alias, this is expected");
+            "Target " + label + " was not built. If the target is an alias, this is expected");
         artifacts.put(label, new ArrayList<>());
       }
     }
