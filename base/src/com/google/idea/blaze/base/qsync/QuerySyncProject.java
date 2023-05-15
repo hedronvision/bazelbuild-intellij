@@ -38,20 +38,23 @@ import com.google.idea.blaze.qsync.BlazeProject;
 import com.google.idea.blaze.qsync.project.BlazeProjectSnapshot;
 import com.google.idea.blaze.qsync.project.PostQuerySyncData;
 import com.google.idea.blaze.qsync.project.ProjectDefinition;
+import com.google.idea.blaze.qsync.project.SnapshotDeserializer;
 import com.google.idea.blaze.qsync.project.SnapshotSerializer;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 /**
@@ -145,10 +148,9 @@ public class QuerySyncProject {
       BlazeProjectSnapshot newProject =
           lastQuery.isEmpty()
               ? projectQuerier.fullQuery(projectDefinition, context)
-              : projectQuerier.update(lastQuery.get(), context);
-      snapshotHolder.setCurrent(context, newProject);
-      projectData = projectData.withSnapshot(newProject);
-      writeToDisk(newProject);
+              : projectQuerier.update(projectDefinition, lastQuery.get(), context);
+      newProject = dependencyTracker.updateSnapshot(context, newProject);
+      onNewSnapshot(context, newProject);
 
       // TODO: Revisit SyncListeners once we switch fully to qsync
       for (SyncListener syncListener : SyncListener.EP_NAME.getExtensions()) {
@@ -163,7 +165,7 @@ public class QuerySyncProject {
             SyncMode.FULL,
             SyncResult.SUCCESS);
       }
-    } catch (CancellationException | BuildException | IOException e) {
+    } catch (Exception e) {
       context.handleException("Project sync failed", e);
     } finally {
       for (SyncListener syncListener : SyncListener.EP_NAME.getExtensions()) {
@@ -175,6 +177,9 @@ public class QuerySyncProject {
 
   public void build(BlazeContext context, List<Path> wps) throws IOException, BuildException {
     getDependencyTracker().buildDependenciesForFile(context, wps);
+    BlazeProjectSnapshot newSnapshot =
+        getDependencyTracker().updateSnapshot(context, snapshotHolder.getCurrent().orElseThrow());
+    onNewSnapshot(context, newSnapshot);
   }
 
   public DependencyTracker getDependencyTracker() {
@@ -186,7 +191,7 @@ public class QuerySyncProject {
       Path path = Paths.get(psiFile.getVirtualFile().getPath());
       String rel = workspaceRoot.path().relativize(path).toString();
       build(context, ImmutableList.of(WorkspacePath.createIfValid(rel).asPath()));
-    } catch (CancellationException | IOException | BuildException e) {
+    } catch (Exception e) {
       context.handleException("Failed to build dependencies", e);
     }
   }
@@ -222,6 +227,16 @@ public class QuerySyncProject {
     return this.projectDefinition.equals(projectDefinition);
   }
 
+  public Optional<PostQuerySyncData> readSnapshotFromDisk() throws IOException {
+    File f = snapshotFilePath.toFile();
+    if (!f.exists()) {
+      return Optional.empty();
+    }
+    try (InputStream in = new GZIPInputStream(new FileInputStream(f))) {
+      return Optional.of(new SnapshotDeserializer().readFrom(in).getSyncData());
+    }
+  }
+
   private void writeToDisk(BlazeProjectSnapshot snapshot) throws IOException {
     File f = snapshotFilePath.toFile();
     if (!f.getParentFile().exists()) {
@@ -232,5 +247,12 @@ public class QuerySyncProject {
     try (OutputStream o = new GZIPOutputStream(new FileOutputStream(f))) {
       new SnapshotSerializer().visit(snapshot.queryData()).toProto().writeTo(o);
     }
+  }
+
+  private void onNewSnapshot(BlazeContext context, BlazeProjectSnapshot newSnapshot)
+      throws IOException {
+    snapshotHolder.setCurrent(context, newSnapshot);
+    projectData = projectData.withSnapshot(newSnapshot);
+    writeToDisk(newSnapshot);
   }
 }

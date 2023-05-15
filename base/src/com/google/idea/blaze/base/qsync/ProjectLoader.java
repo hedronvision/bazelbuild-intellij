@@ -18,21 +18,21 @@ package com.google.idea.blaze.base.qsync;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.idea.blaze.base.bazel.BuildSystem;
 import com.google.idea.blaze.base.bazel.BuildSystemProvider;
+import com.google.idea.blaze.base.command.buildresult.OutputArtifact;
 import com.google.idea.blaze.base.model.primitives.WorkspaceRoot;
 import com.google.idea.blaze.base.projectview.ProjectViewManager;
 import com.google.idea.blaze.base.projectview.ProjectViewSet;
 import com.google.idea.blaze.base.qsync.cache.ArtifactFetcher;
 import com.google.idea.blaze.base.qsync.cache.ArtifactTracker;
-import com.google.idea.blaze.base.qsync.cache.FileApiArtifactFetcher;
 import com.google.idea.blaze.base.scope.BlazeContext;
 import com.google.idea.blaze.base.settings.BlazeImportSettings;
 import com.google.idea.blaze.base.settings.BlazeImportSettings.ProjectType;
 import com.google.idea.blaze.base.settings.BlazeImportSettingsManager;
-import com.google.idea.blaze.base.settings.BuildBinaryType;
 import com.google.idea.blaze.base.sync.data.BlazeDataStorage;
 import com.google.idea.blaze.base.sync.projectview.ImportRoots;
 import com.google.idea.blaze.base.sync.projectview.LanguageSupport;
@@ -45,18 +45,11 @@ import com.google.idea.blaze.qsync.PackageStatementParser;
 import com.google.idea.blaze.qsync.ParallelPackageReader;
 import com.google.idea.blaze.qsync.ProjectRefresher;
 import com.google.idea.blaze.qsync.WorkspaceResolvingPackageReader;
-import com.google.idea.blaze.qsync.project.PostQuerySyncData;
 import com.google.idea.blaze.qsync.project.ProjectDefinition;
-import com.google.idea.blaze.qsync.project.SnapshotDeserializer;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.concurrency.AppExecutorUtil;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.Optional;
-import java.util.zip.GZIPInputStream;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -113,25 +106,17 @@ public class ProjectLoader {
         ProjectDefinition.create(importRoots.rootPaths(), importRoots.excludePaths());
 
     Path snapshotFilePath = getSnapshotFilePath(importSettings);
-    Optional<PostQuerySyncData> loadedSnapshot = loadFromDisk(snapshotFilePath);
-    // don't use the snapshot if the project definition has changed, since a full re-load will be
-    // necessary in that case:
-    loadedSnapshot =
-        loadedSnapshot.filter(snapshot -> snapshot.projectDefinition().equals(latestProjectDef));
-
-    ProjectDefinition projectDefinition =
-        loadedSnapshot.map(PostQuerySyncData::projectDefinition).orElse(latestProjectDef);
 
     DependencyBuilder dependencyBuilder =
         createDependencyBuilder(workspaceRoot, importRoots, buildSystem);
 
     BlazeProject graph = new BlazeProject();
-    ArtifactFetcher artifactFetcher = createArtifactFetcher(buildSystem);
+    ArtifactFetcher<OutputArtifact> artifactFetcher = createArtifactFetcher();
     ArtifactTracker artifactTracker = new ArtifactTracker(importSettings, artifactFetcher);
     artifactTracker.initialize();
     DependencyCache dependencyCache = new DependencyCache(artifactTracker);
     DependencyTracker dependencyTracker =
-        new DependencyTracker(graph, dependencyBuilder, dependencyCache);
+        new DependencyTracker(project, graph, dependencyBuilder, dependencyCache);
     ProjectRefresher projectRefresher =
         new ProjectRefresher(createPackageReader(workspaceRoot), workspaceRoot.path());
     QueryRunner queryRunner = createQueryRunner(buildSystem);
@@ -142,24 +127,21 @@ public class ProjectLoader {
     QuerySyncSourceToTargetMap sourceToTargetMap =
         new QuerySyncSourceToTargetMap(graph, workspaceRoot.path());
 
-
-    QuerySyncProject loadedProject =
-        new QuerySyncProject(
-            project,
-            snapshotFilePath,
-            graph,
-            importSettings,
-            workspaceRoot,
-            dependencyCache,
-            dependencyTracker,
-            projectQuerier,
-            projectDefinition,
-            projectViewSet,
-            workspacePathResolver,
-            workspaceLanguageSettings,
-            sourceToTargetMap,
-            projectViewManager);
-    return loadedProject;
+    return new QuerySyncProject(
+        project,
+        snapshotFilePath,
+        graph,
+        importSettings,
+        workspaceRoot,
+        dependencyCache,
+        dependencyTracker,
+        projectQuerier,
+        latestProjectDef,
+        projectViewSet,
+        workspacePathResolver,
+        workspaceLanguageSettings,
+        sourceToTargetMap,
+        projectViewManager);
   }
 
   private static ParallelPackageReader createPackageReader(WorkspaceRoot workspaceRoot) {
@@ -186,32 +168,12 @@ public class ProjectLoader {
     return new BazelDependencyBuilder(project, buildSystem, importRoots, workspaceRoot);
   }
 
-  public Optional<PostQuerySyncData> loadFromDisk(Path snapshotFilePath) throws IOException {
-    File f = snapshotFilePath.toFile();
-    if (!f.exists()) {
-      return Optional.empty();
-    }
-    try (InputStream in = new GZIPInputStream(new FileInputStream(f))) {
-      return Optional.of(new SnapshotDeserializer().readFrom(in).getSyncData());
-    }
-  }
-
   private Path getSnapshotFilePath(BlazeImportSettings importSettings) {
     return BlazeDataStorage.getProjectDataDir(importSettings).toPath().resolve("qsyncdata.gz");
   }
 
-  private ArtifactFetcher createArtifactFetcher(BuildSystem buildSystem) {
-    Preconditions.checkState(
-        ArtifactFetcher.EP_NAME.getExtensions().length <= 1,
-        "There are too many artifact fetchers");
-    ArtifactFetcher defaultArtifactFetcher = new FileApiArtifactFetcher();
-    BuildBinaryType buildBinaryType =
-        buildSystem.getDefaultInvoker(project, BlazeContext.create()).getType();
-    for (ArtifactFetcher artifactFetcher : ArtifactFetcher.EP_NAME.getExtensions()) {
-      if (artifactFetcher.isEnabled(buildBinaryType)) {
-        return artifactFetcher;
-      }
-    }
-    return defaultArtifactFetcher;
+  private ArtifactFetcher<OutputArtifact> createArtifactFetcher() {
+    return new DynamicallyDispatchingArtifactFetcher(
+        ImmutableList.copyOf(ArtifactFetcher.EP_NAME.getExtensions()));
   }
 }

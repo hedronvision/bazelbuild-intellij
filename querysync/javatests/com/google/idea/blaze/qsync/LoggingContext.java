@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The Bazel Authors. All rights reserved.
+ * Copyright 2023 The Bazel Authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.tools.idea;
+package com.google.idea.blaze.qsync;
 
-/** Simple compat utilities across various versions of AS plugin SDK. */
-public class BaseAsCompat {
+import com.google.common.flogger.GoogleLogger;
+import com.google.idea.blaze.common.Output;
 
-  private BaseAsCompat() {}
+public class LoggingContext extends NoopContext {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  @Override
+  public <T extends Output> void output(T output) {
+    logger.atInfo().log(output);
+  }
 }

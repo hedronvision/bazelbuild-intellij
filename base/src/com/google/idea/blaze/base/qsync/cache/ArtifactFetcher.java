@@ -20,26 +20,33 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.idea.blaze.base.command.buildresult.OutputArtifact;
-import com.google.idea.blaze.base.settings.BuildBinaryType;
 import com.google.idea.blaze.common.Context;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.util.concurrency.AppExecutorUtil;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
 /** Copy a bunch of artifacts. */
-public interface ArtifactFetcher {
-  ExtensionPointName<ArtifactFetcher> EP_NAME =
+public interface ArtifactFetcher<ArtifactT extends OutputArtifact> {
+  ExtensionPointName<ArtifactFetcher<?>> EP_NAME =
       ExtensionPointName.create("com.google.idea.blaze.qsync.ArtifactFetcher");
 
   ListeningExecutorService EXECUTOR =
       MoreExecutors.listeningDecorator(
           AppExecutorUtil.createBoundedApplicationPoolExecutor("ArtifactBulkCopyExecutor", 128));
 
+  /** A structure that describes that destination location to which an artifact has to be copied. */
+  final class ArtifactDestination {
+    public final Path path;
+
+    public ArtifactDestination(Path path) {
+      this.path = path;
+    }
+  }
+
   /** Copies a bunch of artifact to destination. */
   ListenableFuture<List<Path>> copy(
-      ImmutableMap<OutputArtifact, Path> artifactToDest, Context<?> context) throws IOException;
+      ImmutableMap<? extends ArtifactT, ArtifactDestination> artifactToDest, Context<?> context);
 
-  boolean isEnabled(BuildBinaryType buildBinaryType);
+  Class<ArtifactT> supportedArtifactType();
 }

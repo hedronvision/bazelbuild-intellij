@@ -39,7 +39,6 @@ import com.google.idea.blaze.base.sync.status.BlazeSyncStatus;
 import com.google.idea.blaze.base.targetmaps.SourceToTargetMap;
 import com.google.idea.blaze.base.toolwindow.Task;
 import com.google.idea.blaze.base.util.SaveUtil;
-import com.google.idea.blaze.common.PrintOutput;
 import com.google.idea.blaze.qsync.project.BlazeProjectSnapshot;
 import com.google.idea.blaze.qsync.project.PostQuerySyncData;
 import com.google.idea.blaze.qsync.project.ProjectDefinition;
@@ -47,7 +46,6 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiFile;
 import com.intellij.serviceContainer.NonInjectable;
-import java.io.IOException;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -104,10 +102,10 @@ public class QuerySyncManager {
       QuerySyncProject newProject = loader.loadProject(context);
       if (!context.hasErrors()) {
         loadedProject = Preconditions.checkNotNull(newProject);
-        loadedProject.sync(context, Optional.empty());
+        loadedProject.sync(context, loadedProject.readSnapshotFromDisk());
       }
-    } catch (IOException e) {
-      onError("Failed to load project", e, context);
+    } catch (Exception e) {
+      context.handleException("Failed to load project", e);
     }
   }
 
@@ -122,16 +120,6 @@ public class QuerySyncManager {
   private void assertProjectLoaded() {
     if (loadedProject == null) {
       throw new IllegalStateException("Project not loaded yet");
-    }
-  }
-
-  /** Log & display a message to the user when a user-initiated action fails. */
-  void onError(String description, Exception e, BlazeContext context) {
-    logger.error(description, e);
-    context.output(PrintOutput.error(description + ": " + e.getClass().getSimpleName()));
-    context.setHasError();
-    if (e.getMessage() != null) {
-      context.output(PrintOutput.error("Cause: " + e.getMessage()));
     }
   }
 

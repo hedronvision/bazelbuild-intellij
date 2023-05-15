@@ -15,7 +15,6 @@
  */
 package com.google.idea.blaze.base.command.buildresult;
 
-
 import com.google.errorprone.annotations.MustBeClosed;
 import com.google.idea.blaze.base.command.buildresult.BlazeArtifact.LocalFileArtifact;
 import com.google.idea.blaze.base.filecache.ArtifactState;
@@ -25,10 +24,6 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import javax.annotation.Nullable;
 
 /** A blaze output artifact which exists on the local file system. */
@@ -70,18 +65,6 @@ public class LocalFileOutputArtifact implements OutputArtifact, LocalFileArtifac
   @MustBeClosed
   public BufferedInputStream getInputStream() throws IOException {
     return new BufferedInputStream(new FileInputStream(file));
-  }
-
-  @Override
-  public void copyTo(Path dest) throws IOException {
-    if (Files.exists(dest) && Files.isDirectory(dest)) {
-      FileOperationProvider.getInstance().deleteRecursively(dest.toFile(), true);
-    }
-    Files.copy(
-        Paths.get(getFile().getPath()),
-        dest,
-        StandardCopyOption.REPLACE_EXISTING,
-        StandardCopyOption.COPY_ATTRIBUTES);
   }
 
   @Override
